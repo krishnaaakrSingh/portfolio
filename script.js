@@ -809,7 +809,7 @@ function imageAnimation() {
   // OPEN PREVIEW
   // =========================================
 
-  function openPreview(key, x, y, index) {
+    function openPreview(key, x, y, index) {
     const isFirstOpen = !active;
 
     lastCursor = { x, y };
@@ -891,7 +891,8 @@ function imageAnimation() {
 
     item.addEventListener(
       "mousemove",
-      (e) => {        if (!active) return;
+      (e) => {
+        if (!active) return;
         moveTo(e.clientX, e.clientY);
       },
       { passive: true }
@@ -923,6 +924,30 @@ function imageAnimation() {
 
 
 // ==========================================
+// 11. INDIA LIVE TIME
+// ==========================================
+
+function localTime() {
+  const el = document.getElementById("time");
+  if (!el) return;
+
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+
+  function update() {
+    el.textContent = fmt.format(new Date()) + " IST";
+  }
+
+  update();
+  setInterval(update, 1000);
+}
+
+
+// ==========================================
 // INIT
 // ==========================================
 
@@ -949,6 +974,7 @@ function init() {
   safe(hemburger);
   safe(aboutMeMagnet);
   safe(imageAnimation);
+  safe(localTime);
   safe(refreshScroll);
 
   // Failsafe: kuch bhi ho, preloader 12 sec baad hat jayega
@@ -972,32 +998,4 @@ if (document.readyState === "loading") {
 
 // Images load hone ke baad scroll height sahi karo
 window.addEventListener("load", () => safe(refreshScroll));
-(function () {
-  function startClock() {
-    const el = document.getElementById("time");
-    if (!el) {
-      console.warn("#time element nahi mila");
-      return;
-    }
-
-    const fmt = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-
-    function update() {
-      el.textContent = fmt.format(new Date()) + " IST";
-    }
-
-    update();
-    setInterval(update, 1000);
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startClock);
-  } else {
-    startClock();
-  }
-})();
+             
