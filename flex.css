@@ -1461,15 +1461,15 @@ ul.list li {
   }
 
   .proj[data-key="velvet"]::before {
-    background-image: url("project-img.png");
+    background-image: url("./project-img.png");
   }
 
   .proj[data-key="orbit"]::before {
-    background-image: url("Fix-bug.png");
+    background-image: url("./Fix-bug.png");
   }
 
    .proj[data-key="field"]::before {
-    background-image: url("image3.png");
+    background-image: url("./image3.png");
   }
 
 .proj h2 {
