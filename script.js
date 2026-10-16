@@ -972,26 +972,32 @@ if (document.readyState === "loading") {
 
 // Images load hone ke baad scroll height sahi karo
 window.addEventListener("load", () => safe(refreshScroll));
-// ==========================================
-// 11. INDIA LOCAL TIME
-// ==========================================
+(function () {
+  function startClock() {
+    const el = document.getElementById("time");
+    if (!el) {
+      console.warn("#time element nahi mila");
+      return;
+    }
 
-function localTime() {
-  const el = document.getElementById("time");
-  if (!el) return;
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
 
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
+    function update() {
+      el.textContent = fmt.format(new Date()) + " IST";
+    }
 
-  function update() {
-    el.textContent = fmt.format(new Date()) + " IST";
+    update();
+    setInterval(update, 1000);
   }
 
-  update();
-  setInterval(update, 1000);
-    }
-        
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startClock);
+  } else {
+    startClock();
+  }
+})();
