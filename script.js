@@ -1,21 +1,71 @@
-let locoScroll;
+// ==========================================
+// 0. CONFIG / HELPERS
+// ==========================================
+
+gsap.registerPlugin(ScrollTrigger);
+
+// Locomotive sirf laptop/desktop (mouse wale device + width > 767px) par chalega.
+// Phone/tablet (touch) par native scroll rahega.
+const IS_DESKTOP = window.matchMedia(
+  "(min-width: 768px) and (hover: hover) and (pointer: fine)"
+).matches;
+
+const IS_MOBILE_WIDTH = window.innerWidth <= 767;
+
+let locoScroll = null;
+
+// Desktop => ".container" (Locomotive), Mobile => normal window scroll
+const SCROLLER = IS_DESKTOP ? ".container" : window;
+
+// Ek frame mein ek hi baar callback chalao (mousemove/touchmove optimize)
+function rafThrottle(fn) {
+  let ticking = false;
+  let lastArgs;
+
+  return function (...args) {
+    lastArgs = args;
+    if (ticking) return;
+    ticking = true;
+
+    requestAnimationFrame(() => {
+      ticking = false;
+      fn(...lastArgs);
+    });
+  };
+}
+
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
+
+// Scroll listener: desktop => Locomotive, mobile => native scroll
+function onScrollY(callback) {
+  if (locoScroll) {
+    locoScroll.on("scroll", (args) => callback(args.scroll.y));
+  } else {
+    window.addEventListener(
+      "scroll",
+      () => callback(window.scrollY || window.pageYOffset),
+      { passive: true }
+    );
+  }
+}
 
 
 // ==========================================
-// 1. LOCOMOTIVE SCROLL
+// 1. LOCOMOTIVE SCROLL (DESKTOP ONLY)
 // ==========================================
 
 function smoothScroll() {
+  if (!IS_DESKTOP) return;
 
   const container = document.querySelector(".container");
-
   if (!container) return;
 
   locoScroll = new LocomotiveScroll({
     el: container,
     smooth: true
   });
-
 }
 
 
@@ -24,58 +74,42 @@ function smoothScroll() {
 // ==========================================
 
 function scrollTriggerSetup() {
+  // Default scroller set: har trigger automatically sahi scroller use karega
+  ScrollTrigger.defaults({ scroller: SCROLLER });
 
-  gsap.registerPlugin(ScrollTrigger);
+  // Mobile: native scroll, proxy ki zaroorat nahi
+  if (!IS_DESKTOP) return;
 
   const container = document.querySelector(".container");
-
   if (!container || !locoScroll) return;
-
 
   // Locomotive → ScrollTrigger
   locoScroll.on("scroll", ScrollTrigger.update);
 
-
   // ScrollTrigger → Locomotive
   ScrollTrigger.scrollerProxy(".container", {
-
     scrollTop(value) {
-
       return arguments.length
-
         ? locoScroll.scrollTo(value, 0, 0)
-
         : locoScroll.scroll.instance.scroll.y;
-
     },
 
-
     getBoundingClientRect() {
-
       return {
         top: 0,
         left: 0,
         width: window.innerWidth,
         height: window.innerHeight
       };
-
     },
 
-
-    pinType: container.style.transform
-      ? "transform"
-      : "fixed"
-
+    pinType: container.style.transform ? "transform" : "fixed"
   });
-
 
   // Refresh
   ScrollTrigger.addEventListener("refresh", () => {
-
     locoScroll.update();
-
   });
-
 }
 
 
@@ -84,9 +118,7 @@ function scrollTriggerSetup() {
 // ==========================================
 
 function greeting() {
-
   const greetings = [
-
     "• Hello",
     "• Hola",
     "• Bonjour",
@@ -96,115 +128,45 @@ function greeting() {
     "• Привет",
     "• Hallo",
     "• नमस्ते"
-
   ];
 
-
   const el = document.getElementById("greeting-text");
-
   if (!el) return;
 
+  const preloader = document.querySelector("#preloader");
 
   const cycle = gsap.timeline({
-
     onComplete: () => {
-
-      gsap.to("#preloader", {
-
+      gsap.to(preloader, {
         yPercent: -100,
-
         borderBottomLeftRadius: "50% 18%",
         borderBottomRightRadius: "50% 18%",
-
         duration: 1,
-
         ease: "power3.inOut",
 
         onComplete: () => {
-
-          const preloader =
-            document.querySelector("#preloader");
-
-          if (preloader) {
-            preloader.style.display = "none";
-          }
-
-
-          if (locoScroll) {
-            locoScroll.update();
-          }
-
-
-          ScrollTrigger.refresh();
-
+          if (preloader) preloader.style.display = "none";
+          refreshScroll();
         }
-
       });
-
     }
-
   });
 
+  const lastIndex = greetings.length - 1;
 
   greetings.forEach((word, i) => {
-
-    const isLast =
-      i === greetings.length - 1;
-
-
     cycle
-
       .call(() => {
-
         el.textContent = word;
-
       })
+      .fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.05 });
 
-
-      .fromTo(
-
-        el,
-
-        {
-          opacity: 0
-        },
-
-        {
-          opacity: 1,
-          duration: 0.05
-        }
-
-      );
-
-
-    if (isLast) {
-
-      cycle.to(el, {
-
-        opacity: 1,
-
-        duration: 0.7
-
-      });
-
+    if (i === lastIndex) {
+      cycle.to(el, { opacity: 1, duration: 0.7 });
+    } else {
+      cycle.to(el, { opacity: 0, duration: 0.05, delay: 0.06 });
     }
-
-    else {
-
-      cycle.to(el, {
-
-        opacity: 0,
-
-        duration: 0.05,
-
-        delay: 0.06
-
-      });
-
-    }
-
   });
-
 }
 
 
@@ -213,81 +175,47 @@ function greeting() {
 // ==========================================
 
 function krishnaAnimation() {
+  const marqueeTrack = document.querySelector(".marquee-track");
+  if (!marqueeTrack) return;
 
-  const marqueeTrack =
-    document.querySelector(".marquee-track");
+  const speed = IS_MOBILE_WIDTH ? 1 : 3;
 
-
-  if (!marqueeTrack || !locoScroll) return;
-
-
-  const trackWidth =
-    marqueeTrack.offsetWidth / 2;
-
-
+  let trackWidth = marqueeTrack.offsetWidth / 2;
   let posX = 0;
-
   let direction = -1;
-
   let lastScrollY = 0;
 
-  const speed = window.innerWidth<= 767 ? 1 : 3;
+  // gsap.set har frame ki jagah quickSetter (zyada fast)
+  const setX = gsap.quickSetter(marqueeTrack, "x", "px");
 
+  // Resize par width dobara calculate
+  window.addEventListener(
+    "resize",
+    rafThrottle(() => {
+      trackWidth = marqueeTrack.offsetWidth / 2;
+    })
+  );
 
-  // Detect scroll direction
-  locoScroll.on("scroll", (args) => {
-
-    const currentScrollY =
-      args.scroll.y;
-
-
-    // DOWN
+  // Scroll direction detect (desktop + mobile dono par)
+  onScrollY((currentScrollY) => {
     if (currentScrollY > lastScrollY) {
-
-      direction = -1;
-
+      direction = -1; // DOWN
+    } else if (currentScrollY < lastScrollY) {
+      direction = 1; // UP
     }
-
-
-    // UP
-    else if (currentScrollY < lastScrollY) {
-
-      direction = 1;
-
-    }
-
 
     lastScrollY = currentScrollY;
-
   });
-
 
   // Marquee movement
   gsap.ticker.add(() => {
-
     posX += speed * direction;
 
+    if (posX <= -trackWidth) posX += trackWidth;
+    if (posX > 0) posX -= trackWidth;
 
-    if (posX <= -trackWidth) {
-
-      posX += trackWidth;
-
-    }
-
-
-    if (posX > 0) {
-
-      posX -= trackWidth;
-
-    }
-
-
-    gsap.set(marqueeTrack, {
-      x: posX
-    });
-
+    setX(posX);
   });
-
 }
 
 
@@ -296,62 +224,37 @@ function krishnaAnimation() {
 // ==========================================
 
 function page2Animation() {
-
   // Helping Brands Heading
   gsap.from(".helping-brands h1 span", {
-
     y: 100,
-
     opacity: 0,
-
     duration: 1,
-
     stagger: 0.25,
-
     ease: "power3.out",
 
     scrollTrigger: {
-
       trigger: ".page2",
-
-      scroller: ".container",
-
+      scroller: SCROLLER,
       start: "top 60%",
-
       end: "top 20%",
-
       scrub: 2
-
     }
-
   });
-
 
   // Right Paragraph
   gsap.from(".right-p p", {
-
     y: 100,
-
     opacity: 0,
-
     duration: 1,
-
     ease: "power3.out",
 
     scrollTrigger: {
-
       trigger: ".right-p",
-
-      scroller: ".container",
-
+      scroller: SCROLLER,
       start: "top 65%",
-
       toggleActions: "play none none reverse"
-
     }
-
   });
-
 }
 
 
@@ -367,15 +270,8 @@ function page2Animation() {
 // ==========================================
 
 function refreshScroll() {
-
-  if (locoScroll) {
-
-    locoScroll.update();
-
-  }
-
+  if (locoScroll) locoScroll.update();
   ScrollTrigger.refresh();
-
 }
 
 
@@ -388,16 +284,12 @@ function hemburger() {
   if (!btn) return;
 
   // Initial state
-  gsap.set(btn, {
-    scale: 0,
-    x: 0,
-    y: 0
-  });
+  gsap.set(btn, { scale: 0, x: 0, y: 0 });
 
   // SCROLL SHOW / HIDE
   ScrollTrigger.create({
     trigger: ".page1",
-    scroller: ".container",
+    scroller: SCROLLER,
     start: "top -100px",
 
     onEnter: () => {
@@ -435,6 +327,8 @@ function hemburger() {
   });
 
   // BUTTON CENTER
+  // NOTE: button apne aap move karta hai (transform), isliye rect se
+  // center lete waqt current x/y minus karke "base" center nikalte hain.
   function getCenter() {
     const rect = btn.getBoundingClientRect();
 
@@ -444,12 +338,16 @@ function hemburger() {
     };
   }
 
+  function reset() {
+    btnX(0);
+    btnY(0);
+  }
+
   // MOUSE MAGNET
   function handleMove(clientX, clientY) {
     // Hidden button par magnetic effect nahi
     if (gsap.getProperty(btn, "scale") < 0.5) {
-      btnX(0);
-      btnY(0);
+      reset();
       return;
     }
 
@@ -466,35 +364,28 @@ function hemburger() {
       let y = dy * MAGNET_STRENGTH * strength;
 
       const magnitude = Math.hypot(x, y);
-      const clamp = Math.min(1, MAX_PULL / (magnitude || 1));
+      const limit = Math.min(1, MAX_PULL / (magnitude || 1));
 
-      x *= clamp;
-      y *= clamp;
-
-      btnX(x);
-      btnY(y);
+      btnX(x * limit);
+      btnY(y * limit);
     } else {
-      btnX(0);
-      btnY(0);
+      reset();
     }
   }
 
-  window.addEventListener("mousemove", (e) => {
-    handleMove(e.clientX, e.clientY);
-  });
+  const throttledMove = rafThrottle(handleMove);
 
-  window.addEventListener("mouseleave", () => {
-    btnX(0);
-    btnY(0);
-  });
+  window.addEventListener(
+    "mousemove",
+    (e) => throttledMove(e.clientX, e.clientY),
+    { passive: true }
+  );
+
+  window.addEventListener("mouseleave", reset);
 
   // TOUCH RESET
-  window.addEventListener("touchend", () => {
-    btnX(0);
-    btnY(0);
-  });
+  window.addEventListener("touchend", reset, { passive: true });
 }
-
 
 
 // ==========================================
@@ -502,292 +393,145 @@ function hemburger() {
 // ==========================================
 
 function aboutMeMagnet() {
-
-  const button =
-    document.querySelector(".outer-circle");
-
-  const label =
-    document.querySelector(".label");
-
-  const fill =
-    document.querySelector(".fill");
-
+  const button = document.querySelector(".outer-circle");
+  const label = document.querySelector(".label");
+  const fill = document.querySelector(".fill");
 
   if (!button || !label || !fill) return;
 
-
   const PULL_RADIUS = 130;
-
   const MAX_PULL = 30;
-
   const LABEL_PULL_RATIO = 0.5;
-
 
   let isNear = false;
 
-
   function getCenter() {
-
-    const r =
-      button.getBoundingClientRect();
-
+    const r = button.getBoundingClientRect();
 
     return {
-
       x: r.left + r.width / 2,
-
       y: r.top + r.height / 2
-
     };
-
   }
-
 
   function handleMove(clientX, clientY) {
+    const c = getCenter();
 
-    const c =
-      getCenter();
-
-
-    const dx =
-      clientX - c.x;
-
-    const dy =
-      clientY - c.y;
-
-
-    const dist =
-      Math.hypot(dx, dy);
-
+    const dx = clientX - c.x;
+    const dy = clientY - c.y;
+    const dist = Math.hypot(dx, dy);
 
     if (dist < PULL_RADIUS) {
+      const strength = 1 - dist / PULL_RADIUS;
 
-      const strength =
-        1 - dist / PULL_RADIUS;
+      let x = dx * strength;
+      let y = dy * strength;
 
+      const mag = Math.hypot(x, y);
+      const limit = Math.min(1, MAX_PULL / (mag || 1));
 
-      let x =
-        dx * strength;
-
-      let y =
-        dy * strength;
-
-
-      const mag =
-        Math.hypot(x, y);
-
-
-      const clamp =
-        Math.min(
-          1,
-          MAX_PULL / (mag || 1)
-        );
-
-
-      x *= clamp;
-
-      y *= clamp;
-
+      x *= limit;
+      y *= limit;
 
       gsap.to(button, {
-
         x,
         y,
-
         duration: 0.6,
-
         ease: "power3.out",
-
         overwrite: true
-
       });
-
 
       gsap.to(label, {
-
-        x:
-          x *
-          LABEL_PULL_RATIO,
-
-        y:
-          y *
-          LABEL_PULL_RATIO,
-
+        x: x * LABEL_PULL_RATIO,
+        y: y * LABEL_PULL_RATIO,
         duration: 0.4,
-
         ease: "power3.out",
-
         overwrite: true
-
       });
 
-
       if (!isNear) {
-
         isNear = true;
-
         fillIn();
-
       }
-
+    } else if (isNear) {
+      isNear = false;
+      resetPull();
+      fillOut();
     }
-
-    else {
-
-      if (isNear) {
-
-        isNear = false;
-
-        resetPull();
-
-        fillOut();
-
-      }
-
-    }
-
   }
-
 
   function resetPull() {
-
     gsap.to(button, {
-
       x: 0,
-
       y: 0,
-
       duration: 0.8,
-
-      ease: "elastic.out(1, 0.3)"
-
+      ease: "elastic.out(1, 0.3)",
+      overwrite: true
     });
-
 
     gsap.to(label, {
-
       x: 0,
-
       y: 0,
-
       duration: 0.5,
-
-      ease: "power3.out"
-
+      ease: "power3.out",
+      overwrite: true
     });
-
   }
 
+  const throttledMove = rafThrottle(handleMove);
 
   document.addEventListener(
     "mousemove",
-
-    (e) => {
-
-      handleMove(
-        e.clientX,
-        e.clientY
-      );
-
-    }
-
+    (e) => throttledMove(e.clientX, e.clientY),
+    { passive: true }
   );
-
 
   document.addEventListener(
     "touchmove",
-
     (e) => {
-
-      const t =
-        e.touches[0];
-
-
-      if (t) {
-
-        handleMove(
-          t.clientX,
-          t.clientY
-        );
-
-      }
-
+      const t = e.touches[0];
+      if (t) throttledMove(t.clientX, t.clientY);
     },
-
-    {
-      passive: true
-    }
-
+    { passive: true }
   );
-
 
   document.addEventListener(
     "touchend",
-
     () => {
-
       if (isNear) {
-
         isNear = false;
-
         resetPull();
-
         fillOut();
-
       }
-
-    }
-
+    },
+    { passive: true }
   );
-
 
   // =========================================
   // FILL EFFECT
   // =========================================
 
   function fillIn() {
-
-    gsap.set(fill, {
-
-      transformOrigin: "bottom"
-
-    });
-
+    gsap.set(fill, { transformOrigin: "bottom" });
 
     gsap.to(fill, {
-
       scaleY: 1,
-
       duration: 0.5,
-
-      ease: "power3.out"
-
+      ease: "power3.out",
+      overwrite: true
     });
-
   }
-
 
   function fillOut() {
-
-    gsap.set(fill, {
-
-      transformOrigin: "top"
-
-    });
-
+    gsap.set(fill, { transformOrigin: "top" });
 
     gsap.to(fill, {
-
       scaleY: 0,
-
       duration: 0.4,
-
-      ease: "power2.in"
-
+      ease: "power2.in",
+      overwrite: true
     });
-
   }
-
 }
 
 
@@ -796,805 +540,341 @@ function aboutMeMagnet() {
 // ==========================================
 
 function imageAnimation() {
-
+  // (Paths fix kiye: "./image3" -> "./image3.png", ".project-img.png" -> "./project-img.png")
   const IMAGES = {
-
-    aurora:"./boat.png",
-
-
-    nimbus:
-      "./crafting.png",
-
-    velvet:
-      "./project-img.png",
-
-    orbit:
-      "./Fix-bug.png",
-
-    field:
-      "./image3"
-
+    aurora: "./boat.png",
+    nimbus: "./crafting.png",
+    velvet: "./project-img.png",
+    orbit: "./Fix-bug.png",
+    field: "./image3.png"
   };
-
 
   const LABELS = {
-
     aurora: "./boat.png",
-
     nimbus: "./crafting.png",
-
-    velvet: ".project-img.png",
-
+    velvet: "./project-img.png",
     orbit: "./Fix-bug.png",
-
     field: "./image3.png"
-
   };
-
 
   // =========================================
   // SVG / IMAGE
   // =========================================
 
   function svgFor(key) {
-
-    const image =
-      IMAGES[key];
-
-
+    const image = IMAGES[key];
     if (!image) return "";
 
-
-    return `
-
-      <img
-        src="${image}"
-        alt="${LABELS[key]}"
-      >
-
-    `;
-
+    return `<img src="${image}" alt="${LABELS[key]}">`;
   }
-
 
   // =========================================
   // ELEMENTS
   // =========================================
 
-  const viewText =
-    document.getElementById("viewText");
+  const viewText = document.getElementById("viewText");
+  const preview = document.getElementById("preview");
+  const faceA = document.getElementById("faceA");
+  const faceB = document.getElementById("faceB");
+  const btn = document.getElementById("cursorBtn");
+  const btnInner = document.getElementById("btnInner");
+  const list = document.getElementById("list");
 
-  const preview =
-    document.getElementById("preview");
-
-  const faceA =
-    document.getElementById("faceA");
-
-  const faceB =
-    document.getElementById("faceB");
-
-  const btn =
-    document.getElementById("cursorBtn");
-
-  const btnInner =
-    document.getElementById("btnInner");
-
-  const list =
-    document.getElementById("list");
-
-
-  if (
-    !viewText ||
-    !preview ||
-    !faceA ||
-    !faceB ||
-    !btn ||
-    !btnInner ||
-    !list
-  ) {
-
-    console.warn(
-      "Image animation elements not found."
-    );
-
+  if (!viewText || !preview || !faceA || !faceB || !btn || !btnInner || !list) {
+    console.warn("Image animation elements not found.");
     return;
-
   }
-
 
   // =========================================
   // PROJECTS
   // =========================================
 
-  const items =
-    list.querySelectorAll(".proj");
-
-  const itemsArr =
-    Array.from(items);
-
+  const itemsArr = Array.from(list.querySelectorAll(".proj"));
 
   // =========================================
   // STATE
   // =========================================
 
   let showingA = true;
-
   let active = false;
-
   let currentIndex = -1;
-
 
   // =========================================
   // PREVIEW INITIAL POSITION
   // =========================================
 
   gsap.set(preview, {
-
     xPercent: -50,
-
     yPercent: -50,
-
-    x:
-      window.innerWidth / 2,
-
-    y:
-      window.innerHeight / 2,
-
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
     scale: 0,
-
     opacity: 0,
-
-    transformOrigin:
-      "50% 50%"
-
+    transformOrigin: "50% 50%"
   });
-
 
   // =========================================
   // FACES
   // =========================================
 
-  gsap.set(
-    [faceA, faceB],
-    {
-      yPercent: 100
-    }
-  );
-
-
-  gsap.set(faceA, {
-
-    yPercent: 0,
-
-    zIndex: 2
-
-  });
-
-
-  gsap.set(faceB, {
-
-    zIndex: 1
-
-  });
-
+  gsap.set([faceA, faceB], { yPercent: 100 });
+  gsap.set(faceA, { yPercent: 0, zIndex: 2 });
+  gsap.set(faceB, { zIndex: 1 });
 
   // =========================================
   // MAGNETIC BUTTON
   // =========================================
 
-  const moveX =
-    gsap.quickTo(
-      preview,
-      "x",
-      {
-        duration: 0.5,
-        ease: "power3.out"
-      }
-    );
+  const moveX = gsap.quickTo(preview, "x", {
+    duration: 0.5,
+    ease: "power3.out"
+  });
 
-
-  const moveY =
-    gsap.quickTo(
-      preview,
-      "y",
-      {
-        duration: 0.5,
-        ease: "power3.out"
-      }
-    );
-
+  const moveY = gsap.quickTo(preview, "y", {
+    duration: 0.5,
+    ease: "power3.out"
+  });
 
   let lastCursor = {
-
-    x:
-      window.innerWidth / 2,
-
-    y:
-      window.innerHeight / 2
-
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2
   };
 
-
   function moveTo(x, y) {
-
     lastCursor.x = x;
-
     lastCursor.y = y;
 
     moveX(x);
-
     moveY(y);
-
   }
 
-
   // =========================================
-  // OPEN
+  // OPEN / CLOSE SCALE
   // =========================================
 
   function openScale() {
-
     gsap.to(preview, {
-
       scale: 1,
-
       opacity: 1,
-
       duration: 0.6,
-
       ease: "power3.out"
-
     });
-
   }
-
-
-  // =========================================
-  // CLOSE
-  // =========================================
 
   function closeScale() {
-
     gsap.to(preview, {
-
       scale: 0,
-
       opacity: 0,
-
       duration: 0.6,
-
       ease: "power3.inOut"
-
     });
-
   }
-
 
   // =========================================
   // MAGNETIC LOOP
+  // Ab sirf tab chalta hai jab preview active ho (idle CPU use zero)
   // =========================================
 
-  let bOff = {
-
-    x: 0,
-
-    y: 0
-
-  };
-
-
-  function clamp(v, a, b) {
-
-    return Math.max(
-      a,
-      Math.min(b, v)
-    );
-
-  }
-
+  const bOff = { x: 0, y: 0 };
 
   function magneticLoop() {
+    const curX = gsap.getProperty(preview, "x");
+    const curY = gsap.getProperty(preview, "y");
 
-    const curX =
-      gsap.getProperty(
-        preview,
-        "x"
-      );
+    const rawOffX = clamp((lastCursor.x - curX) * 1.15, -22, 22);
+    const rawOffY = clamp((lastCursor.y - curY) * 1.15, -16, 16);
 
+    bOff.x += (rawOffX - bOff.x) * 0.1;
+    bOff.y += (rawOffY - bOff.y) * 0.1;
 
-    const curY =
-      gsap.getProperty(
-        preview,
-        "y"
-      );
-
-
-    const rawOffX =
-      clamp(
-
-        (lastCursor.x - curX) *
-        1.15,
-
-        -22,
-
-        22
-
-      );
-
-
-    const rawOffY =
-      clamp(
-
-        (lastCursor.y - curY) *
-        1.15,
-
-        -16,
-
-        16
-
-      );
-
-
-    bOff.x +=
-      (rawOffX - bOff.x) *
-      0.10;
-
-
-    bOff.y +=
-      (rawOffY - bOff.y) *
-      0.10;
-
-
-    const stretch =
-      Math.min(
-
-        Math.hypot(
-          bOff.x,
-          bOff.y
-        ) / 40,
-
-        1
-
-      );
-
-
-    const sx =
-      1 + stretch * 0.18;
-
-
-    const sy =
-      1 - stretch * 0.10;
-
+    const stretch = Math.min(Math.hypot(bOff.x, bOff.y) / 40, 1);
 
     gsap.set(btnInner, {
-
       x: bOff.x,
-
       y: bOff.y,
-
-      scaleX: sx,
-
-      scaleY: sy
-
+      scaleX: 1 + stretch * 0.18,
+      scaleY: 1 - stretch * 0.1
     });
-
 
     gsap.set(viewText, {
-
-      x:
-        bOff.x * 0.40,
-
-      y:
-        bOff.y * 0.40
-
+      x: bOff.x * 0.4,
+      y: bOff.y * 0.4
     });
-
-
-    requestAnimationFrame(
-      magneticLoop
-    );
-
   }
 
+  function startLoop() {
+    gsap.ticker.add(magneticLoop);
+  }
 
-  requestAnimationFrame(
-    magneticLoop
-  );
-
+  function stopLoop() {
+    gsap.ticker.remove(magneticLoop);
+    bOff.x = 0;
+    bOff.y = 0;
+  }
 
   // =========================================
   // SLIDE IMAGE
   // =========================================
 
-  function slideFace(
-    key,
-    direction
-  ) {
+  function slideFace(key, direction) {
+    const incoming = showingA ? faceB : faceA;
+    const outgoing = showingA ? faceA : faceB;
 
-    const incoming =
-      showingA
-        ? faceB
-        : faceA;
-
-
-    const outgoing =
-      showingA
-        ? faceA
-        : faceB;
-
-
-    incoming.innerHTML =
-      svgFor(key);
-
+    incoming.innerHTML = svgFor(key);
 
     gsap.set(incoming, {
-
       zIndex: 2,
-
-      yPercent:
-        direction > 0
-          ? 100
-          : -100
-
+      yPercent: direction > 0 ? 100 : -100
     });
 
-
-    gsap.set(outgoing, {
-
-      zIndex: 1
-
-    });
-
+    gsap.set(outgoing, { zIndex: 1 });
 
     gsap.to(incoming, {
-
       yPercent: 0,
-
       duration: 0.55,
-
-      ease: "power3.inOut"
-
+      ease: "power3.inOut",
+      overwrite: true
     });
-
 
     gsap.to(outgoing, {
-
-      yPercent:
-        direction > 0
-          ? -100
-          : 100,
-
+      yPercent: direction > 0 ? -100 : 100,
       duration: 0.55,
-
-      ease: "power3.inOut"
-
+      ease: "power3.inOut",
+      overwrite: true
     });
 
-
     showingA = !showingA;
-
   }
-
 
   // =========================================
   // FIRST IMAGE
   // =========================================
 
   function showFaceInstant(key) {
+    const incoming = showingA ? faceB : faceA;
+    const outgoing = showingA ? faceA : faceB;
 
-    const incoming =
-      showingA
-        ? faceB
-        : faceA;
+    incoming.innerHTML = svgFor(key);
 
-
-    const outgoing =
-      showingA
-        ? faceA
-        : faceB;
-
-
-    incoming.innerHTML =
-      svgFor(key);
-
-
-    gsap.set(incoming, {
-
-      zIndex: 2,
-
-      yPercent: 0
-
-    });
-
-
-    gsap.set(outgoing, {
-
-      zIndex: 1,
-
-      yPercent: 100
-
-    });
-
+    gsap.set(incoming, { zIndex: 2, yPercent: 0 });
+    gsap.set(outgoing, { zIndex: 1, yPercent: 100 });
 
     showingA = !showingA;
-
   }
-
 
   // =========================================
   // PROJECT NAME CENTER
   // =========================================
 
   function getProjectPosition(item) {
-
-    const title =
-      item.querySelector("h2");
-
-
-    if (!title) {
-
-      const rect =
-        item.getBoundingClientRect();
-
-
-      return {
-
-        x:
-          rect.left +
-          rect.width / 2,
-
-        y:
-          rect.top +
-          rect.height / 2
-
-      };
-
-    }
-
-
-    const rect =
-      title.getBoundingClientRect();
-
+    const target = item.querySelector("h2") || item;
+    const rect = target.getBoundingClientRect();
 
     return {
-
-      x:
-        rect.left +
-        rect.width / 2,
-
-      y:
-        rect.top +
-        rect.height / 2
-
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
     };
-
   }
-
 
   // =========================================
   // OPEN PREVIEW
   // =========================================
 
-  function openPreview(
-    key,
-    x,
-    y,
-    index
-  ) {
+  function openPreview(key, x, y, index) {
+    const isFirstOpen = !active;
 
-    const isFirstOpen =
-      !active;
-
-
-    lastCursor = {
-      x: x,
-      y: y
-    };
-
+    lastCursor = { x, y };
 
     if (isFirstOpen) {
-
-      gsap.set(preview, {
-
-        x: x,
-
-        y: y
-
-      });
-
-    }
-
-    else {
-
+      gsap.set(preview, { x, y });
+    } else {
       moveTo(x, y);
-
     }
-
 
     // FIRST IMAGE
-    if (
-      isFirstOpen ||
-      currentIndex === -1
-    ) {
-
+    if (isFirstOpen || currentIndex === -1) {
       showFaceInstant(key);
-
     }
-
-
     // CHANGE IMAGE
-    else if (
-      index !== currentIndex
-    ) {
-
-      slideFace(
-
-        key,
-
-        index > currentIndex
-          ? 1
-          : -1
-
-      );
-
+    else if (index !== currentIndex) {
+      slideFace(key, index > currentIndex ? 1 : -1);
     }
-
 
     currentIndex = index;
 
-
     // OPEN
     if (isFirstOpen) {
-
       openScale();
-
-      btn.classList.add(
-        "is-open"
-      );
-
+      btn.classList.add("is-open");
       active = true;
-
+      startLoop();
     }
-
   }
-
 
   // =========================================
   // CLOSE PREVIEW
   // =========================================
 
   function closePreview() {
-
     if (!active) return;
 
-
     active = false;
-
     currentIndex = -1;
 
-
+    stopLoop();
     closeScale();
 
-
-    btn.classList.remove(
-      "is-open"
-    );
-
+    btn.classList.remove("is-open");
 
     gsap.to(btnInner, {
-
       x: 0,
-
       y: 0,
-
       scaleX: 1,
-
       scaleY: 1,
-
       duration: 0.4,
-
       ease: "power3.out"
-
     });
-
 
     gsap.to(viewText, {
-
       x: 0,
-
       y: 0,
-
       duration: 0.4,
-
       ease: "power3.out"
-
     });
-
   }
-
 
   // =========================================
   // DESKTOP HOVER + CURSOR FOLLOW
   // =========================================
 
-  itemsArr.forEach(
-    function (item, idx) {
+  itemsArr.forEach((item, idx) => {
+    item.addEventListener("mouseenter", () => {
+      const key = item.dataset.key;
 
-      item.addEventListener(
-        "mouseenter",
-        function () {
+      if (!key) {
+        console.warn("data-key missing:", item);
+        return;
+      }
 
-          const key =
-            item.dataset.key;
+      const position = getProjectPosition(item);
+      openPreview(key, position.x, position.y, idx);
+    });
 
-
-          if (!key) {
-
-            console.warn(
-              "data-key missing:",
-              item
-            );
-
-            return;
-
-          }
-
-
-          const position =
-            getProjectPosition(item);
-
-
-          openPreview(
-
-            key,
-
-            position.x,
-
-            position.y,
-
-            idx
-
-          );
-
-        }
-      );
-
-
-      item.addEventListener(
-        "mousemove",
-        function (e) {
-
-          if (!active) return;
-
-
-          moveTo(
-
-            e.clientX,
-
-            e.clientY
-
-          );
-
-        }
-      );
-
-    }
-  );
-
+    item.addEventListener(
+      "mousemove",
+      (e) => {
+        if (!active) return;
+        moveTo(e.clientX, e.clientY);
+      },
+      { passive: true }
+    );
+  });
 
   // =========================================
   // LEAVE PROJECT LIST
   // =========================================
 
-  list.addEventListener(
-    "mouseleave",
-    function () {
-
-      closePreview();
-
-    }
-  );
-
+  list.addEventListener("mouseleave", closePreview);
 
   // =========================================
   // RESIZE
@@ -1602,725 +882,24 @@ function imageAnimation() {
 
   window.addEventListener(
     "resize",
-    function () {
-
+    rafThrottle(() => {
       if (!active) {
-
         gsap.set(preview, {
-
-          x:
-            window.innerWidth / 2,
-
-          y:
-            window.innerHeight / 2
-
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2
         });
-
       }
-
-    }
+    })
   );
-
 }
 
 
 // ==========================================
-// 11. NAV MAGNET
+// INIT
+// (Agar tumhare original file mein neeche init/DOMContentLoaded block hai
+//  to bas usi order mein calls rakhna. Original file ka end paste mein cut ho gaya tha.)
 // ==========================================
 
-function navMagnet() {
-
-  // =========================================
-  // RIGHT MENU
-  // =========================================
-
-  const items =
-    document.querySelectorAll(".right span");
-
-
-  items.forEach((item) => {
-
-    const dot =
-      document.createElement("div");
-
-
-    gsap.set(item, {
-
-      position: "relative"
-
-    });
-
-
-    gsap.set(dot, {
-
-      width: 5,
-
-      height: 5,
-
-      backgroundColor: "#fff",
-
-      borderRadius: "50%",
-
-      position: "absolute",
-
-      left: "50%",
-
-      bottom: "-10px",
-
-      xPercent: -50,
-
-      scale: 0,
-
-      pointerEvents: "none"
-
-    });
-
-
-    item.appendChild(dot);
-
-
-    const RADIUS = 120;
-
-    const STRENGTH = 0.75;
-
-
-    item.addEventListener(
-      "mousemove",
-      (e) => {
-
-        const rect =
-          item.getBoundingClientRect();
-
-
-        const dx =
-          e.clientX -
-          (
-            rect.left +
-            rect.width / 2
-          );
-
-
-        const dy =
-          e.clientY -
-          (
-            rect.top +
-            rect.height / 2
-          );
-
-
-        const distance =
-          Math.sqrt(
-            dx * dx +
-            dy * dy
-          );
-
-
-        if (
-          distance <
-          RADIUS
-        ) {
-
-          gsap.to(item, {
-
-            x:
-              dx *
-              STRENGTH,
-
-            y:
-              dy *
-              STRENGTH,
-
-            duration: 0.45,
-
-            ease:
-              "elastic.out(1, 0.2)",
-
-            overwrite: true
-
-          });
-
-
-          gsap.to(dot, {
-
-            scale: 1,
-
-            duration: 0.3,
-
-            ease:
-              "back.out(2)"
-
-          });
-
-        }
-
-      }
-    );
-
-
-    item.addEventListener(
-      "mouseleave",
-      () => {
-
-        gsap.to(item, {
-
-          x: 0,
-
-          y: 0,
-
-          duration: 1,
-
-          ease:
-            "elastic.out(1, 0.2)"
-
-        });
-
-
-        gsap.to(dot, {
-
-          scale: 0,
-
-          duration: 0.3,
-
-          ease:
-            "back.in(2)"
-
-        });
-
-      }
-    );
-
-  });
-
-
-  // =========================================
-  // © CODE BY KRISHNA
-  // =========================================
-
-  const copyright =
-    document.querySelector(".left span");
-
-
-  if (!copyright) return;
-
-
-  gsap.set(copyright, {
-
-    display: "inline-block"
-
-  });
-
-
-  // © ko separate span mein wrap karo
-  copyright.innerHTML =
-    copyright.innerHTML.replace(
-
-      "©",
-
-      '<span class="copyright-symbol">©</span>'
-
-    );
-
-
-  const symbol =
-    copyright.querySelector(
-      ".copyright-symbol"
-    );
-
-
-  gsap.set(symbol, {
-
-    display: "inline-block",
-
-    transformOrigin:
-      "center center"
-
-  });
-
-
-  // Magnetic settings
-  const RADIUS = 120;
-
-  const STRENGTH = 0.55;
-
-
-  // Magnetic movement
-  copyright.addEventListener(
-    "mousemove",
-    (e) => {
-
-      const rect =
-        copyright.getBoundingClientRect();
-
-
-      const dx =
-        e.clientX -
-        (
-          rect.left +
-          rect.width / 2
-        );
-
-
-      const dy =
-        e.clientY -
-        (
-          rect.top +
-          rect.height / 2
-        );
-
-
-      const distance =
-        Math.sqrt(
-          dx * dx +
-          dy * dy
-        );
-
-
-      if (
-        distance <
-        RADIUS
-      ) {
-
-        gsap.to(copyright, {
-
-          x:
-            dx *
-            STRENGTH,
-
-          y:
-            dy *
-            STRENGTH,
-
-          duration: 0.5,
-
-          ease:
-            "elastic.out(1, 0.2)",
-
-          overwrite: true
-
-        });
-
-      }
-
-    }
-  );
-
-
-  // Har hover par © spin
-  copyright.addEventListener(
-    "mouseenter",
-    () => {
-
-      gsap.fromTo(
-
-        symbol,
-
-        {
-          rotation: 0
-        },
-
-        {
-          rotation: 360,
-
-          duration: 0.6,
-
-          ease:
-            "back.out(1.7)"
-
-        }
-
-      );
-
-    }
-  );
-
-
-
-
-  
-
-  // Magnetic reset
-  copyright.addEventListener(
-    "mouseleave",
-    () => {
-
-      gsap.to(copyright, {
-
-        x: 0,
-
-        y: 0,
-
-        duration: 1,
-
-        ease:
-          "elastic.out(1, 0.2)"
-
-      });
-
-    }
-  );
-
-}
-
-
-
-
-
-// ==========================================
-// 12. LOCATED / FREELANCE SCROLL
-// ==========================================
-
-function locatedScroll() {
-// Purani animation aur ScrollTrigger ko remove karo
-ScrollTrigger.getById("locatedScrollTrigger")?.kill();
-
-// Mobile par animation nahi chalegi
-if (window.matchMedia("(max-width: 767px)").matches) {
-gsap.set(".located, .freelance", {
-clearProps: "transform"
-});
-return;
-}
-
-// Sirf desktop / system par animation
-gsap.to(".located, .freelance", {
-y: -250,
-ease: "none",
-
-
-scrollTrigger: {
-  id: "locatedScrollTrigger",
-  trigger: ".page1",
-  scroller: ".container",
-  start: "top top",
-  end: "bottom top",
-  scrub: 1,
-  invalidateOnRefresh: true
-}
-
-
-});
-}
-
-// Screen resize hone par animation update karo
-let locatedResizeTimer;
-
-window.addEventListener("resize", () => {
-clearTimeout(locatedResizeTimer);
-
-locatedResizeTimer = setTimeout(() => {
-ScrollTrigger.getById("locatedScrollTrigger")?.kill();
-
-
-gsap.set(".located, .freelance", {
-  clearProps: "transform"
-});
-
-locatedScroll();
-ScrollTrigger.refresh();
-
-if (locoScroll) {
-  locoScroll.update();
-}
-
-
-}, 200);
-});
-
-
-function updateIndiaTime() {
-  const time = document.querySelector("#time");
-
-  const indiaTime = new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  }).format(new Date());
-
-  time.textContent = `${indiaTime} IST`;
-}
-
-updateIndiaTime();
-setInterval(updateIndiaTime, 1000);
-
-
-
-function getInTouchMagnet() {
-
-  const button = document.querySelector(".get-circle");
-
-  if (!button) return;
-
-  const PULL_RADIUS = 130;
-  const MAX_PULL = 30;
-
-  let isNear = false;
-
-  function getCenter() {
-
-    const r = button.getBoundingClientRect();
-
-    return {
-      x: r.left + r.width / 2,
-      y: r.top + r.height / 2
-    };
-
-  }
-
-  function handleMove(clientX, clientY) {
-
-    const c = getCenter();
-
-    const dx = clientX - c.x;
-    const dy = clientY - c.y;
-
-    const dist = Math.hypot(dx, dy);
-
-    if (dist < PULL_RADIUS) {
-
-      const strength =
-        1 - dist / PULL_RADIUS;
-
-      let x = dx * strength;
-      let y = dy * strength;
-
-      const mag = Math.hypot(x, y);
-
-      const clamp =
-        Math.min(
-          1,
-          MAX_PULL / (mag || 1)
-        );
-
-      x *= clamp;
-      y *= clamp;
-
-      gsap.to(button, {
-
-        x,
-        y,
-
-        duration: 0.6,
-
-        ease: "power3.out",
-
-        overwrite: true
-
-      });
-
-      isNear = true;
-
-    } else {
-
-      if (isNear) {
-
-        isNear = false;
-
-        resetPull();
-
-      }
-
-    }
-
-  }
-
-  function resetPull() {
-
-    gsap.to(button, {
-
-      x: 0,
-      y: 0,
-
-      duration: 0.8,
-
-      ease: "elastic.out(1, 0.3)"
-
-    });
-
-  }
-
-  document.addEventListener("mousemove", (e) => {
-
-    handleMove(
-      e.clientX,
-      e.clientY
-    );
-
-  });
-
-  document.addEventListener(
-    "touchmove",
-
-    (e) => {
-
-      const t = e.touches[0];
-
-      if (t) {
-
-        handleMove(
-          t.clientX,
-          t.clientY
-        );
-
-      }
-
-    },
-
-    {
-      passive: true
-    }
-
-  );
-
-  document.addEventListener(
-    "touchend",
-
-    () => {
-
-      if (isNear) {
-
-        isNear = false;
-
-        resetPull();
-
-      }
-
-    }
-
-  );
-
-}
-
-
-
-function page3RoundAnimation() {
-
-  gsap.to(".page3", {
-    paddingBottom: "0vh",
-
-    scrollTrigger: {
-      trigger: ".page3",
-      scroller: ".container",
-
-      start: "top 80%",
-      end: "top 20%",
-
-      scrub: 1
-    }
-  });
-
-  gsap.to(".page3::after", {
-    y: "100%",
-    scrollTrigger: {
-      trigger: ".page3",
-      scroller: ".container",
-
-      start: "top 80%",
-      end: "top 20%",
-
-      scrub: 1
-    }
-  });
-
-}
-
-
-
-
-/* PAGE 3 - OVAL TO STRAIGHT ON SCROLL */
-
-
-
-function page3RoundAnimation() {
-  gsap.registerPlugin(ScrollTrigger);
-
-  const page3 = document.querySelector(".page3");
-  if (!page3) return;
-
-  gsap.to(page3, {
-    borderBottomLeftRadius: "0px",
-    borderBottomRightRadius: "0px",
-    ease: "none",
-
-    scrollTrigger: {
-      trigger: page3,
-      scroller: ".container",
-      start: "bottom bottom",
-      end: "bottom 40%",
-      scrub: true,
-      invalidateOnRefresh: true
-    }
-  });
-}
-
-function projectFadeIn() {
-const projects = document.querySelectorAll("#list .proj");
-
-if (!projects.length) return;
-
-// Purani animations clear karo
-gsap.set(projects, {
-opacity: 0,
-y: 35
-});
-
-projects.forEach((project) => {
-gsap.to(project, {
-opacity: 1,
-y: 0,
-duration: 0.8,
-ease: "power2.out",
-
-
-  scrollTrigger: {
-    trigger: project,
-    scroller: ".container",
-    start: "top 90%",
-    toggleActions: "play none none none"
-  }
-});
-
-
-});
-}
-
-
-// ==========================================
-// 13. INITIALIZE EVERYTHING
-// ==========================================
-
-function init() {
-  smoothScroll();
-
-  scrollTriggerSetup();
-
-  page3RoundAnimation()
-
-  updateIndiaTime()
-
-  getInTouchMagnet()
-
-  greeting();
-
-  krishnaAnimation();
-
-  page2Animation();
-
-  refreshScroll();
-
-  hemburger();
-
-  aboutMeMagnet();
-
-  imageAnimation();
-
-  navMagnet();
-
-  locatedScroll();
-
-  projectFadeIn()
-
-}
-
-
-init();
+window.addEventListener("load", () => {
+  smoothScroll();       // desktop only
+  scrollTriggerSetup(); // desktop => proxy, mobile 
