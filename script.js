@@ -2,7 +2,9 @@
 // 0. CONFIG / HELPERS
 // ==========================================
 
-gsap.registerPlugin(ScrollTrigger);
+if (window.gsap && window.ScrollTrigger) {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 // Locomotive sirf laptop/desktop (mouse wale device + width > 767px) par chalega.
 // Phone/tablet (touch) par native scroll rahega.
@@ -900,6 +902,40 @@ function imageAnimation() {
 //  to bas usi order mein calls rakhna. Original file ka end paste mein cut ho gaya tha.)
 // ==========================================
 
-window.addEventListener("load", () => {
-  smoothScroll();       // desktop only
-  scrollTriggerSetup(); // desktop => proxy, mobile 
+// Ek function fail ho to baaki (aur preloader) na ruke
+function safe(fn) {
+  try {
+    fn();
+  } catch (err) {
+    console.error(fn.name + " failed:", err);
+  }
+}
+
+let initDone = false;
+
+function init() {
+  if (initDone) return; // double init se bachao
+  initDone = true;
+
+  safe(smoothScroll);       // desktop only
+  safe(scrollTriggerSetup); // desktop => proxy, mobile => native
+  safe(greeting);           // preloader
+  safe(krishnaAnimation);
+  safe(page2Animation);
+  safe(hemburger);
+  safe(aboutMeMagnet);
+  safe(imageAnimation);
+  safe(refreshScroll);
+}
+
+// "load" images ka wait karta hai (preloader late/ruka lagta hai),
+// isliye DOMContentLoaded use kiya
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+
+// Images load hone ke baad scroll height sahi karo
+window.addEventListener("load", () => safe(refreshScroll));
+ 
