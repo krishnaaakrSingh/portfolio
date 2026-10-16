@@ -1,4 +1,15 @@
 // ==========================================
+// DEBUG: phone par error screen pe dikhega (kaam hone ke baad hata sakte ho)
+// ==========================================
+window.addEventListener("error", (e) => {
+  const d = document.createElement("div");
+  d.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:#fff;font:12px monospace;padding:8px";
+  d.textContent = e.message + " (line " + e.lineno + ")";
+  (document.body || document.documentElement).appendChild(d);
+});
+
+// ==========================================
 // 0. CONFIG / HELPERS
 // ==========================================
 
@@ -119,6 +130,19 @@ function scrollTriggerSetup() {
 // 3. PRELOADER / GREETING
 // ==========================================
 
+// Preloader ke time peeche ka page scroll na ho
+function lockScroll() {
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  if (locoScroll && locoScroll.stop) locoScroll.stop();
+}
+
+function unlockScroll() {
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
+  if (locoScroll && locoScroll.start) locoScroll.start();
+}
+
 function greeting() {
   const greetings = [
     "• Hello",
@@ -137,6 +161,8 @@ function greeting() {
 
   const preloader = document.querySelector("#preloader");
 
+  lockScroll();
+
   const cycle = gsap.timeline({
     onComplete: () => {
       gsap.to(preloader, {
@@ -148,6 +174,7 @@ function greeting() {
 
         onComplete: () => {
           if (preloader) preloader.style.display = "none";
+          unlockScroll();
           refreshScroll();
         }
       });
@@ -864,8 +891,7 @@ function imageAnimation() {
 
     item.addEventListener(
       "mousemove",
-      (e) => {
-        if (!active) return;
+      (e) => {        if (!active) return;
         moveTo(e.clientX, e.clientY);
       },
       { passive: true }
@@ -898,8 +924,6 @@ function imageAnimation() {
 
 // ==========================================
 // INIT
-// (Agar tumhare original file mein neeche init/DOMContentLoaded block hai
-//  to bas usi order mein calls rakhna. Original file ka end paste mein cut ho gaya tha.)
 // ==========================================
 
 // Ek function fail ho to baaki (aur preloader) na ruke
@@ -926,6 +950,16 @@ function init() {
   safe(aboutMeMagnet);
   safe(imageAnimation);
   safe(refreshScroll);
+
+  // Failsafe: kuch bhi ho, preloader 12 sec baad hat jayega
+  setTimeout(() => {
+    const p = document.querySelector("#preloader");
+    if (p && p.style.display !== "none") {
+      p.style.display = "none";
+      unlockScroll();
+      refreshScroll();
+    }
+  }, 12000);
 }
 
 // "load" images ka wait karta hai (preloader late/ruka lagta hai),
@@ -938,4 +972,4 @@ if (document.readyState === "loading") {
 
 // Images load hone ke baad scroll height sahi karo
 window.addEventListener("load", () => safe(refreshScroll));
- 
+        
