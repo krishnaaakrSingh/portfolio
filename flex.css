@@ -1311,6 +1311,7 @@ ul.list li {
   }
 
   .located {
+    display: none;
     width: 45vw;
     height: 20vw;
     margin-top: 40px;
@@ -1348,11 +1349,15 @@ ul.list li {
   }
 
   .c-freelance i {
+    position: absolute;
+    margin-top: 65vw;
     font-size: 6vw;
     line-height: 1;
   }
 
   .c-freelance h3 {
+    position: absolute;
+    margin-top: 75vw;
     font-size: 18px;
     line-height: 1.6;
   }
@@ -1377,6 +1382,9 @@ ul.list li {
   ================================== */
 
   .page2 {
+    display:flex;
+    height: auto;
+    padding: 30px 30px;
     height: auto;
     padding: 12vw 12vw 7vw;
     flex-direction: row;
@@ -1385,12 +1393,12 @@ ul.list li {
   }
 
   .helping-brands {
-    width: 70%;
+    width: 100%;
     line-height: 1.4;
   }
 
   .helping-brands h1 {
-    font-size: 4.3vw;
+    font-size: 6vw;
     line-height: 1.4;
   }
 
@@ -1405,13 +1413,13 @@ ul.list li {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    width: 35%;
+    width: 100%;
     height: auto;
     margin-top: 1.5vw;
   }
 
   .right-p p {
-    font-size: 3vw;
+    font-size: 5vw;
     line-height: 1.5;
   }
   
