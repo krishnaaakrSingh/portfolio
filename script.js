@@ -81,11 +81,13 @@ function scrollTriggerSetup() {
     ScrollTrigger.addEventListener("refresh", () => {
       if (locoScroll) locoScroll.update();
     });
-  } else {
+  }   } else {
+    ScrollTrigger.config({ ignoreMobileResize: true });
+
     ScrollTrigger.defaults({
       scroller: window
     });
-  }
+    }
 }
 
 
@@ -211,6 +213,8 @@ function krishnaAnimation() {
   if (marqueeTrack.dataset.tickerAdded === "true") return;
   marqueeTrack.dataset.tickerAdded = "true";
 
+    const setX = gsap.quickSetter(marqueeTrack, "x", "px");
+
   gsap.ticker.add(() => {
     posX += speed * direction;
 
@@ -219,7 +223,7 @@ function krishnaAnimation() {
       if (posX > 0) posX -= trackWidth;
     }
 
-    gsap.set(marqueeTrack, { x: posX });
+    setX(posX);
   });
 }
 
@@ -241,7 +245,7 @@ function page2Animation() {
       scroller: getScroller(),
       start: "top 60%",
       end: "top 20%",
-      scrub: 2
+      scrub: isDesktop() ? 2 : true
     }
   });
 
@@ -500,11 +504,13 @@ function aboutMeMagnet() {
     handleMove(e.clientX, e.clientY);
   });
 
-  document.addEventListener("touchmove", (e) => {
-    const t = e.touches[0];
+    if (!window.matchMedia("(hover: none)").matches) {
+    document.addEventListener("touchmove", (e) => {
+      const t = e.touches[0];
 
-    if (t) handleMove(t.clientX, t.clientY);
-  }, { passive: true });
+      if (t) handleMove(t.clientX, t.clientY);
+    }, { passive: true });
+    }
 
   document.addEventListener("touchend", () => {
     if (isNear) {
