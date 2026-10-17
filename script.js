@@ -1,84 +1,43 @@
-// ==========================================
-// DEBUG: phone par error screen pe dikhega (kaam hone ke baad hata sakte ho)
-// ==========================================
-window.addEventListener("error", (e) => {
-  const d = document.createElement("div");
-  d.style.cssText =
-    "position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:#fff;font:12px monospace;padding:8px";
-  d.textContent = e.message + " (line " + e.lineno + ")";
-  (document.body || document.documentElement).appendChild(d);
-});
-
-// ==========================================
-// 0. CONFIG / HELPERS
-// ==========================================
-
-if (window.gsap && window.ScrollTrigger) {
-  gsap.registerPlugin(ScrollTrigger);
-}
-
-// Locomotive sirf laptop/desktop (mouse wale device + width > 767px) par chalega.
-// Phone/tablet (touch) par native scroll rahega.
-const IS_DESKTOP = window.matchMedia(
-  "(min-width: 768px) and (hover: hover) and (pointer: fine)"
-).matches;
-
-const IS_MOBILE_WIDTH = window.innerWidth <= 767;
 
 let locoScroll = null;
 
-// Desktop => ".container" (Locomotive), Mobile => normal window scroll
-const SCROLLER = IS_DESKTOP ? ".container" : window;
+const DESKTOP_QUERY = window.matchMedia("(min-width: 1025px)");
 
-// Ek frame mein ek hi baar callback chalao (mousemove/touchmove optimize)
-function rafThrottle(fn) {
-  let ticking = false;
-  let lastArgs;
-
-  return function (...args) {
-    lastArgs = args;
-    if (ticking) return;
-    ticking = true;
-
-    requestAnimationFrame(() => {
-      ticking = false;
-      fn(...lastArgs);
-    });
-  };
+function isDesktop() {
+  return DESKTOP_QUERY.matches;
 }
 
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
+function getScroller() {
+  return isDesktop() ? ".container" : window;
 }
 
-// Scroll listener: desktop => Locomotive, mobile => native scroll
-function onScrollY(callback) {
-  if (locoScroll) {
-    locoScroll.on("scroll", (args) => callback(args.scroll.y));
-  } else {
-    window.addEventListener(
-      "scroll",
-      () => callback(window.scrollY || window.pageYOffset),
-      { passive: true }
-    );
-  }
-}
+let scrollRefreshTimer = null;
 
 
 // ==========================================
-// 1. LOCOMOTIVE SCROLL (DESKTOP ONLY)
+// 1. LOCOMOTIVE SCROLL - DESKTOP ONLY
 // ==========================================
 
 function smoothScroll() {
-  if (!IS_DESKTOP) return;
-
   const container = document.querySelector(".container");
+
   if (!container) return;
 
-  locoScroll = new LocomotiveScroll({
-    el: container,
-    smooth: true
-  });
+  if (!isDesktop()) {
+    if (locoScroll) {
+      locoScroll.destroy();
+      locoScroll = null;
+    }
+
+    return;
+  }
+
+  if (!locoScroll && typeof LocomotiveScroll !== "undefined") {
+    locoScroll = new LocomotiveScroll({
+      el: container,
+      smooth: true
+    });
+  }
 }
 
 
@@ -87,61 +46,52 @@ function smoothScroll() {
 // ==========================================
 
 function scrollTriggerSetup() {
-  // Default scroller set: har trigger automatically sahi scroller use karega
-  ScrollTrigger.defaults({ scroller: SCROLLER });
-
-  // Mobile: native scroll, proxy ki zaroorat nahi
-  if (!IS_DESKTOP) return;
+  gsap.registerPlugin(ScrollTrigger);
 
   const container = document.querySelector(".container");
-  if (!container || !locoScroll) return;
 
-  // Locomotive → ScrollTrigger
-  locoScroll.on("scroll", ScrollTrigger.update);
+  if (!container) return;
 
-  // ScrollTrigger → Locomotive
-  ScrollTrigger.scrollerProxy(".container", {
-    scrollTop(value) {
-      return arguments.length
-        ? locoScroll.scrollTo(value, 0, 0)
-        : locoScroll.scroll.instance.scroll.y;
-    },
+  if (isDesktop() && locoScroll) {
+    locoScroll.on("scroll", ScrollTrigger.update);
 
-    getBoundingClientRect() {
-      return {
-        top: 0,
-        left: 0,
-        width: window.innerWidth,
-        height: window.innerHeight
-      };
-    },
+    ScrollTrigger.scrollerProxy(".container", {
+      scrollTop(value) {
+        return arguments.length
+          ? locoScroll.scrollTo(value, 0, 0)
+          : locoScroll.scroll.instance.scroll.y;
+      },
 
-    pinType: container.style.transform ? "transform" : "fixed"
-  });
+      getBoundingClientRect() {
+        return {
+          top: 0,
+          left: 0,
+          width: window.innerWidth,
+          height: window.innerHeight
+        };
+      },
 
-  // Refresh
-  ScrollTrigger.addEventListener("refresh", () => {
-    locoScroll.update();
-  });
+      pinType: container.style.transform ? "transform" : "fixed"
+    });
+
+    ScrollTrigger.defaults({
+      scroller: ".container"
+    });
+
+    ScrollTrigger.addEventListener("refresh", () => {
+      if (locoScroll) locoScroll.update();
+    });
+  } else {
+    ScrollTrigger.defaults({
+      scroller: window
+    });
+  }
 }
 
 
 // ==========================================
 // 3. PRELOADER / GREETING
 // ==========================================
-
-// Preloader ke time peeche ka page scroll na ho
-function lockScroll() {
-  document.documentElement.style.overflow = "hidden";
-  document.body.style.overflow = "hidden";
-  if (locoScroll && locoScroll.stop) locoScroll.stop();
-}
-
-function unlockScroll() {
-  document.documentElement.style.overflow = "";
-  document.body.style.overflow = "";
-  if (locoScroll && locoScroll.start) locoScroll.start();
-}
 
 function greeting() {
   const greetings = [
@@ -157,11 +107,9 @@ function greeting() {
   ];
 
   const el = document.getElementById("greeting-text");
-  if (!el) return;
-
   const preloader = document.querySelector("#preloader");
 
-  lockScroll();
+  if (!el || !preloader) return;
 
   const cycle = gsap.timeline({
     onComplete: () => {
@@ -173,27 +121,43 @@ function greeting() {
         ease: "power3.inOut",
 
         onComplete: () => {
-          if (preloader) preloader.style.display = "none";
-          unlockScroll();
-          refreshScroll();
+          preloader.style.display = "none";
+
+          if (locoScroll) locoScroll.update();
+
+          ScrollTrigger.refresh();
         }
       });
     }
   });
 
-  const lastIndex = greetings.length - 1;
-
   greetings.forEach((word, i) => {
-    cycle
-      .call(() => {
-        el.textContent = word;
-      })
-      .fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.05 });
+    const isLast = i === greetings.length - 1;
 
-    if (i === lastIndex) {
-      cycle.to(el, { opacity: 1, duration: 0.7 });
+    cycle.call(() => {
+      el.textContent = word;
+    });
+
+    cycle.fromTo(
+      el,
+      { opacity: 0 },
+      {
+        opacity: 1,
+        duration: 0.05
+      }
+    );
+
+    if (isLast) {
+      cycle.to(el, {
+        opacity: 1,
+        duration: 0.7
+      });
     } else {
-      cycle.to(el, { opacity: 0, duration: 0.05, delay: 0.06 });
+      cycle.to(el, {
+        opacity: 0,
+        duration: 0.05,
+        delay: 0.06
+      });
     }
   });
 }
@@ -205,45 +169,57 @@ function greeting() {
 
 function krishnaAnimation() {
   const marqueeTrack = document.querySelector(".marquee-track");
+
   if (!marqueeTrack) return;
 
-  const speed = IS_MOBILE_WIDTH ? 1 : 3;
+  const trackWidth = marqueeTrack.offsetWidth / 2;
 
-  let trackWidth = marqueeTrack.offsetWidth / 2;
   let posX = 0;
   let direction = -1;
   let lastScrollY = 0;
 
-  // gsap.set har frame ki jagah quickSetter (zyada fast)
-  const setX = gsap.quickSetter(marqueeTrack, "x", "px");
+  const speed = window.innerWidth <= 767 ? 1 : 3;
 
-  // Resize par width dobara calculate
-  window.addEventListener(
-    "resize",
-    rafThrottle(() => {
-      trackWidth = marqueeTrack.offsetWidth / 2;
-    })
-  );
+  // Scroll direction: Locomotive on desktop, native scroll on mobile
+  if (locoScroll) {
+    locoScroll.on("scroll", (args) => {
+      const currentScrollY = args.scroll.y;
 
-  // Scroll direction detect (desktop + mobile dono par)
-  onScrollY((currentScrollY) => {
-    if (currentScrollY > lastScrollY) {
-      direction = -1; // DOWN
-    } else if (currentScrollY < lastScrollY) {
-      direction = 1; // UP
-    }
+      if (currentScrollY > lastScrollY) {
+        direction = -1;
+      } else if (currentScrollY < lastScrollY) {
+        direction = 1;
+      }
 
-    lastScrollY = currentScrollY;
-  });
+      lastScrollY = currentScrollY;
+    });
+  } else {
+    window.addEventListener("scroll", () => {
+      const currentScrollY = window.scrollY;
 
-  // Marquee movement
+      if (currentScrollY > lastScrollY) {
+        direction = -1;
+      } else if (currentScrollY < lastScrollY) {
+        direction = 1;
+      }
+
+      lastScrollY = currentScrollY;
+    }, { passive: true });
+  }
+
+  // Prevent creating multiple ticker callbacks
+  if (marqueeTrack.dataset.tickerAdded === "true") return;
+  marqueeTrack.dataset.tickerAdded = "true";
+
   gsap.ticker.add(() => {
     posX += speed * direction;
 
-    if (posX <= -trackWidth) posX += trackWidth;
-    if (posX > 0) posX -= trackWidth;
+    if (trackWidth > 0) {
+      if (posX <= -trackWidth) posX += trackWidth;
+      if (posX > 0) posX -= trackWidth;
+    }
 
-    setX(posX);
+    gsap.set(marqueeTrack, { x: posX });
   });
 }
 
@@ -253,7 +229,6 @@ function krishnaAnimation() {
 // ==========================================
 
 function page2Animation() {
-  // Helping Brands Heading
   gsap.from(".helping-brands h1 span", {
     y: 100,
     opacity: 0,
@@ -263,14 +238,13 @@ function page2Animation() {
 
     scrollTrigger: {
       trigger: ".page2",
-      scroller: SCROLLER,
+      scroller: getScroller(),
       start: "top 60%",
       end: "top 20%",
       scrub: 2
     }
   });
 
-  // Right Paragraph
   gsap.from(".right-p p", {
     y: 100,
     opacity: 0,
@@ -279,7 +253,7 @@ function page2Animation() {
 
     scrollTrigger: {
       trigger: ".right-p",
-      scroller: SCROLLER,
+      scroller: getScroller(),
       start: "top 65%",
       toggleActions: "play none none reverse"
     }
@@ -288,37 +262,35 @@ function page2Animation() {
 
 
 // ==========================================
-// 6. MY PROJECTS HEADING
-// ==========================================
-
-
-
-
-// ==========================================
-// 7. FINAL REFRESH
+// 6. FINAL REFRESH
 // ==========================================
 
 function refreshScroll() {
   if (locoScroll) locoScroll.update();
+
   ScrollTrigger.refresh();
 }
 
 
 // ==========================================
-// 8. HAMBURGER
+// 7. HAMBURGER / DOWNLOAD CV MAGNET
 // ==========================================
 
 function hemburger() {
   const btn = document.getElementById("menu-Btn");
+
   if (!btn) return;
 
-  // Initial state
-  gsap.set(btn, { scale: 0, x: 0, y: 0 });
+  gsap.set(btn, {
+    scale: 0,
+    x: 0,
+    y: 0
+  });
 
-  // SCROLL SHOW / HIDE
   ScrollTrigger.create({
+    id: "hamburgerScrollTrigger",
     trigger: ".page1",
-    scroller: SCROLLER,
+    scroller: getScroller(),
     start: "top -100px",
 
     onEnter: () => {
@@ -340,7 +312,6 @@ function hemburger() {
     }
   });
 
-  // MAGNET SETTINGS
   const PULL_RADIUS = 100;
   const MAGNET_STRENGTH = 0.5;
   const MAX_PULL = 30;
@@ -355,9 +326,6 @@ function hemburger() {
     ease: "elastic.out(1, 0.3)"
   });
 
-  // BUTTON CENTER
-  // NOTE: button apne aap move karta hai (transform), isliye rect se
-  // center lete waqt current x/y minus karke "base" center nikalte hain.
   function getCenter() {
     const rect = btn.getBoundingClientRect();
 
@@ -367,16 +335,10 @@ function hemburger() {
     };
   }
 
-  function reset() {
-    btnX(0);
-    btnY(0);
-  }
-
-  // MOUSE MAGNET
   function handleMove(clientX, clientY) {
-    // Hidden button par magnetic effect nahi
     if (gsap.getProperty(btn, "scale") < 0.5) {
-      reset();
+      btnX(0);
+      btnY(0);
       return;
     }
 
@@ -393,32 +355,37 @@ function hemburger() {
       let y = dy * MAGNET_STRENGTH * strength;
 
       const magnitude = Math.hypot(x, y);
-      const limit = Math.min(1, MAX_PULL / (magnitude || 1));
+      const clamp = Math.min(1, MAX_PULL / (magnitude || 1));
 
-      btnX(x * limit);
-      btnY(y * limit);
+      x *= clamp;
+      y *= clamp;
+
+      btnX(x);
+      btnY(y);
     } else {
-      reset();
+      btnX(0);
+      btnY(0);
     }
   }
 
-  const throttledMove = rafThrottle(handleMove);
+  window.addEventListener("mousemove", (e) => {
+    handleMove(e.clientX, e.clientY);
+  });
 
-  window.addEventListener(
-    "mousemove",
-    (e) => throttledMove(e.clientX, e.clientY),
-    { passive: true }
-  );
+  window.addEventListener("mouseleave", () => {
+    btnX(0);
+    btnY(0);
+  });
 
-  window.addEventListener("mouseleave", reset);
-
-  // TOUCH RESET
-  window.addEventListener("touchend", reset, { passive: true });
+  window.addEventListener("touchend", () => {
+    btnX(0);
+    btnY(0);
+  });
 }
 
 
 // ==========================================
-// 9. ABOUT ME MAGNET
+// 8. ABOUT ME MAGNET
 // ==========================================
 
 function aboutMeMagnet() {
@@ -443,6 +410,46 @@ function aboutMeMagnet() {
     };
   }
 
+  function fillIn() {
+    gsap.set(fill, { transformOrigin: "bottom" });
+
+    gsap.to(fill, {
+      scaleY: 1,
+      duration: 0.5,
+      ease: "power3.out",
+      overwrite: "auto"
+    });
+  }
+
+  function fillOut() {
+    gsap.set(fill, { transformOrigin: "top" });
+
+    gsap.to(fill, {
+      scaleY: 0,
+      duration: 0.4,
+      ease: "power2.in",
+      overwrite: "auto"
+    });
+  }
+
+  function resetPull() {
+    gsap.to(button, {
+      x: 0,
+      y: 0,
+      duration: 0.8,
+      ease: "elastic.out(1, 0.3)",
+      overwrite: "auto"
+    });
+
+    gsap.to(label, {
+      x: 0,
+      y: 0,
+      duration: 0.5,
+      ease: "power3.out",
+      overwrite: "auto"
+    });
+  }
+
   function handleMove(clientX, clientY) {
     const c = getCenter();
 
@@ -457,17 +464,17 @@ function aboutMeMagnet() {
       let y = dy * strength;
 
       const mag = Math.hypot(x, y);
-      const limit = Math.min(1, MAX_PULL / (mag || 1));
+      const clamp = Math.min(1, MAX_PULL / (mag || 1));
 
-      x *= limit;
-      y *= limit;
+      x *= clamp;
+      y *= clamp;
 
       gsap.to(button, {
         x,
         y,
         duration: 0.6,
         ease: "power3.out",
-        overwrite: true
+        overwrite: "auto"
       });
 
       gsap.to(label, {
@@ -475,7 +482,7 @@ function aboutMeMagnet() {
         y: y * LABEL_PULL_RATIO,
         duration: 0.4,
         ease: "power3.out",
-        overwrite: true
+        overwrite: "auto"
       });
 
       if (!isNear) {
@@ -489,87 +496,31 @@ function aboutMeMagnet() {
     }
   }
 
-  function resetPull() {
-    gsap.to(button, {
-      x: 0,
-      y: 0,
-      duration: 0.8,
-      ease: "elastic.out(1, 0.3)",
-      overwrite: true
-    });
+  document.addEventListener("mousemove", (e) => {
+    handleMove(e.clientX, e.clientY);
+  });
 
-    gsap.to(label, {
-      x: 0,
-      y: 0,
-      duration: 0.5,
-      ease: "power3.out",
-      overwrite: true
-    });
-  }
+  document.addEventListener("touchmove", (e) => {
+    const t = e.touches[0];
 
-  const throttledMove = rafThrottle(handleMove);
+    if (t) handleMove(t.clientX, t.clientY);
+  }, { passive: true });
 
-  document.addEventListener(
-    "mousemove",
-    (e) => throttledMove(e.clientX, e.clientY),
-    { passive: true }
-  );
-
-  document.addEventListener(
-    "touchmove",
-    (e) => {
-      const t = e.touches[0];
-      if (t) throttledMove(t.clientX, t.clientY);
-    },
-    { passive: true }
-  );
-
-  document.addEventListener(
-    "touchend",
-    () => {
-      if (isNear) {
-        isNear = false;
-        resetPull();
-        fillOut();
-      }
-    },
-    { passive: true }
-  );
-
-  // =========================================
-  // FILL EFFECT
-  // =========================================
-
-  function fillIn() {
-    gsap.set(fill, { transformOrigin: "bottom" });
-
-    gsap.to(fill, {
-      scaleY: 1,
-      duration: 0.5,
-      ease: "power3.out",
-      overwrite: true
-    });
-  }
-
-  function fillOut() {
-    gsap.set(fill, { transformOrigin: "top" });
-
-    gsap.to(fill, {
-      scaleY: 0,
-      duration: 0.4,
-      ease: "power2.in",
-      overwrite: true
-    });
-  }
+  document.addEventListener("touchend", () => {
+    if (isNear) {
+      isNear = false;
+      resetPull();
+      fillOut();
+    }
+  });
 }
 
 
 // ==========================================
-// 10. IMAGE ANIMATION
+// 9. PROJECT IMAGE PREVIEW
 // ==========================================
 
 function imageAnimation() {
-  // (Paths fix kiye: "./image3" -> "./image3.png", ".project-img.png" -> "./project-img.png")
   const IMAGES = {
     aurora: "./boat.png",
     nimbus: "./crafting.png",
@@ -579,27 +530,20 @@ function imageAnimation() {
   };
 
   const LABELS = {
-    aurora: "./boat.png",
-    nimbus: "./crafting.png",
-    velvet: "./project-img.png",
-    orbit: "./Fix-bug.png",
-    field: "./image3.png"
+    aurora: "boAt Headphones Sale Hero Banner",
+    nimbus: "Crafting Project",
+    velvet: "Project Preview",
+    orbit: "Bug Fixing Project",
+    field: "Field Project"
   };
-
-  // =========================================
-  // SVG / IMAGE
-  // =========================================
 
   function svgFor(key) {
     const image = IMAGES[key];
+
     if (!image) return "";
 
-    return `<img src="${image}" alt="${LABELS[key]}">`;
+    return `<img src="${image}" alt="${LABELS[key] || key}" loading="eager">`;
   }
-
-  // =========================================
-  // ELEMENTS
-  // =========================================
 
   const viewText = document.getElementById("viewText");
   const preview = document.getElementById("preview");
@@ -614,23 +558,11 @@ function imageAnimation() {
     return;
   }
 
-  // =========================================
-  // PROJECTS
-  // =========================================
-
   const itemsArr = Array.from(list.querySelectorAll(".proj"));
-
-  // =========================================
-  // STATE
-  // =========================================
 
   let showingA = true;
   let active = false;
   let currentIndex = -1;
-
-  // =========================================
-  // PREVIEW INITIAL POSITION
-  // =========================================
 
   gsap.set(preview, {
     xPercent: -50,
@@ -642,17 +574,14 @@ function imageAnimation() {
     transformOrigin: "50% 50%"
   });
 
-  // =========================================
-  // FACES
-  // =========================================
-
   gsap.set([faceA, faceB], { yPercent: 100 });
-  gsap.set(faceA, { yPercent: 0, zIndex: 2 });
-  gsap.set(faceB, { zIndex: 1 });
 
-  // =========================================
-  // MAGNETIC BUTTON
-  // =========================================
+  gsap.set(faceA, {
+    yPercent: 0,
+    zIndex: 2
+  });
+
+  gsap.set(faceB, { zIndex: 1 });
 
   const moveX = gsap.quickTo(preview, "x", {
     duration: 0.5,
@@ -677,16 +606,13 @@ function imageAnimation() {
     moveY(y);
   }
 
-  // =========================================
-  // OPEN / CLOSE SCALE
-  // =========================================
-
   function openScale() {
     gsap.to(preview, {
       scale: 1,
       opacity: 1,
       duration: 0.6,
-      ease: "power3.out"
+      ease: "power3.out",
+      overwrite: "auto"
     });
   }
 
@@ -695,26 +621,29 @@ function imageAnimation() {
       scale: 0,
       opacity: 0,
       duration: 0.6,
-      ease: "power3.inOut"
+      ease: "power3.inOut",
+      overwrite: "auto"
     });
   }
 
-  // =========================================
-  // MAGNETIC LOOP
-  // Ab sirf tab chalta hai jab preview active ho (idle CPU use zero)
-  // =========================================
+  let bOff = { x: 0, y: 0 };
 
-  const bOff = { x: 0, y: 0 };
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
+  }
 
-  function magneticLoop() {
+  // One GSAP ticker instead of a permanent requestAnimationFrame loop
+  gsap.ticker.add(() => {
+    if (!active) return;
+
     const curX = gsap.getProperty(preview, "x");
     const curY = gsap.getProperty(preview, "y");
 
     const rawOffX = clamp((lastCursor.x - curX) * 1.15, -22, 22);
     const rawOffY = clamp((lastCursor.y - curY) * 1.15, -16, 16);
 
-    bOff.x += (rawOffX - bOff.x) * 0.1;
-    bOff.y += (rawOffY - bOff.y) * 0.1;
+    bOff.x += (rawOffX - bOff.x) * 0.10;
+    bOff.y += (rawOffY - bOff.y) * 0.10;
 
     const stretch = Math.min(Math.hypot(bOff.x, bOff.y) / 40, 1);
 
@@ -722,28 +651,14 @@ function imageAnimation() {
       x: bOff.x,
       y: bOff.y,
       scaleX: 1 + stretch * 0.18,
-      scaleY: 1 - stretch * 0.1
+      scaleY: 1 - stretch * 0.10
     });
 
     gsap.set(viewText, {
-      x: bOff.x * 0.4,
-      y: bOff.y * 0.4
+      x: bOff.x * 0.40,
+      y: bOff.y * 0.40
     });
-  }
-
-  function startLoop() {
-    gsap.ticker.add(magneticLoop);
-  }
-
-  function stopLoop() {
-    gsap.ticker.remove(magneticLoop);
-    bOff.x = 0;
-    bOff.y = 0;
-  }
-
-  // =========================================
-  // SLIDE IMAGE
-  // =========================================
+  });
 
   function slideFace(key, direction) {
     const incoming = showingA ? faceB : faceA;
@@ -762,22 +677,18 @@ function imageAnimation() {
       yPercent: 0,
       duration: 0.55,
       ease: "power3.inOut",
-      overwrite: true
+      overwrite: "auto"
     });
 
     gsap.to(outgoing, {
       yPercent: direction > 0 ? -100 : 100,
       duration: 0.55,
       ease: "power3.inOut",
-      overwrite: true
+      overwrite: "auto"
     });
 
     showingA = !showingA;
   }
-
-  // =========================================
-  // FIRST IMAGE
-  // =========================================
 
   function showFaceInstant(key) {
     const incoming = showingA ? faceB : faceA;
@@ -785,19 +696,22 @@ function imageAnimation() {
 
     incoming.innerHTML = svgFor(key);
 
-    gsap.set(incoming, { zIndex: 2, yPercent: 0 });
-    gsap.set(outgoing, { zIndex: 1, yPercent: 100 });
+    gsap.set(incoming, {
+      zIndex: 2,
+      yPercent: 0
+    });
+
+    gsap.set(outgoing, {
+      zIndex: 1,
+      yPercent: 100
+    });
 
     showingA = !showingA;
   }
 
-  // =========================================
-  // PROJECT NAME CENTER
-  // =========================================
-
   function getProjectPosition(item) {
-    const target = item.querySelector("h2") || item;
-    const rect = target.getBoundingClientRect();
+    const title = item.querySelector("h2");
+    const rect = (title || item).getBoundingClientRect();
 
     return {
       x: rect.left + rect.width / 2,
@@ -805,11 +719,9 @@ function imageAnimation() {
     };
   }
 
-  // =========================================
-  // OPEN PREVIEW
-  // =========================================
+  function openPreview(key, x, y, index) {
+    if (!IMAGES[key]) return;
 
-    function openPreview(key, x, y, index) {
     const isFirstOpen = !active;
 
     lastCursor = { x, y };
@@ -820,29 +732,20 @@ function imageAnimation() {
       moveTo(x, y);
     }
 
-    // FIRST IMAGE
     if (isFirstOpen || currentIndex === -1) {
       showFaceInstant(key);
-    }
-    // CHANGE IMAGE
-    else if (index !== currentIndex) {
+    } else if (index !== currentIndex) {
       slideFace(key, index > currentIndex ? 1 : -1);
     }
 
     currentIndex = index;
 
-    // OPEN
     if (isFirstOpen) {
       openScale();
       btn.classList.add("is-open");
       active = true;
-      startLoop();
     }
   }
-
-  // =========================================
-  // CLOSE PREVIEW
-  // =========================================
 
   function closePreview() {
     if (!active) return;
@@ -850,9 +753,7 @@ function imageAnimation() {
     active = false;
     currentIndex = -1;
 
-    stopLoop();
     closeScale();
-
     btn.classList.remove("is-open");
 
     gsap.to(btnInner, {
@@ -861,23 +762,27 @@ function imageAnimation() {
       scaleX: 1,
       scaleY: 1,
       duration: 0.4,
-      ease: "power3.out"
+      ease: "power3.out",
+      overwrite: "auto"
     });
 
     gsap.to(viewText, {
       x: 0,
       y: 0,
       duration: 0.4,
-      ease: "power3.out"
+      ease: "power3.out",
+      overwrite: "auto"
     });
+
+    bOff.x = 0;
+    bOff.y = 0;
   }
 
-  // =========================================
-  // DESKTOP HOVER + CURSOR FOLLOW
-  // =========================================
-
+  // Desktop hover preview
   itemsArr.forEach((item, idx) => {
     item.addEventListener("mouseenter", () => {
+      if (window.matchMedia("(hover: none)").matches) return;
+
       const key = item.dataset.key;
 
       if (!key) {
@@ -886,116 +791,462 @@ function imageAnimation() {
       }
 
       const position = getProjectPosition(item);
+
       openPreview(key, position.x, position.y, idx);
     });
 
-    item.addEventListener(
-      "mousemove",
-      (e) => {
-        if (!active) return;
-        moveTo(e.clientX, e.clientY);
-      },
-      { passive: true }
-    );
-  });
+    item.addEventListener("mousemove", (e) => {
+      if (!active) return;
 
-  // =========================================
-  // LEAVE PROJECT LIST
-  // =========================================
+      moveTo(e.clientX, e.clientY);
+    });
+  });
 
   list.addEventListener("mouseleave", closePreview);
 
-  // =========================================
-  // RESIZE
-  // =========================================
-
-  window.addEventListener(
-    "resize",
-    rafThrottle(() => {
-      if (!active) {
-        gsap.set(preview, {
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2
-        });
-      }
-    })
-  );
+  window.addEventListener("resize", () => {
+    if (!active) {
+      gsap.set(preview, {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+      });
+    }
+  });
 }
 
 
 // ==========================================
-// 11. INDIA LIVE TIME
+// 10. NAV MAGNET
 // ==========================================
 
-function localTime() {
-  const el = document.getElementById("time");
-  if (!el) return;
+function navMagnet() {
+  const items = document.querySelectorAll(".right span");
 
-  const fmt = new Intl.DateTimeFormat("en-GB", {
+  items.forEach((item) => {
+    // Avoid adding duplicate dots
+    if (item.querySelector(".nav-magnet-dot")) return;
+
+    const dot = document.createElement("div");
+    dot.className = "nav-magnet-dot";
+
+    gsap.set(item, { position: "relative" });
+
+    gsap.set(dot, {
+      width: 5,
+      height: 5,
+      backgroundColor: "#fff",
+      borderRadius: "50%",
+      position: "absolute",
+      left: "50%",
+      bottom: "-10px",
+      xPercent: -50,
+      scale: 0,
+      pointerEvents: "none"
+    });
+
+    item.appendChild(dot);
+
+    const RADIUS = 120;
+    const STRENGTH = 0.75;
+
+    item.addEventListener("mousemove", (e) => {
+      const rect = item.getBoundingClientRect();
+
+      const dx = e.clientX - (rect.left + rect.width / 2);
+      const dy = e.clientY - (rect.top + rect.height / 2);
+      const distance = Math.hypot(dx, dy);
+
+      if (distance < RADIUS) {
+        gsap.to(item, {
+          x: dx * STRENGTH,
+          y: dy * STRENGTH,
+          duration: 0.45,
+          ease: "elastic.out(1, 0.2)",
+          overwrite: "auto"
+        });
+
+        gsap.to(dot, {
+          scale: 1,
+          duration: 0.3,
+          ease: "back.out(2)"
+        });
+      }
+    });
+
+    item.addEventListener("mouseleave", () => {
+      gsap.to(item, {
+        x: 0,
+        y: 0,
+        duration: 1,
+        ease: "elastic.out(1, 0.2)",
+        overwrite: "auto"
+      });
+
+      gsap.to(dot, {
+        scale: 0,
+        duration: 0.3,
+        ease: "back.in(2)"
+      });
+    });
+  });
+
+  // Copyright magnet and spin
+  const copyright = document.querySelector(".left span");
+
+  if (!copyright) return;
+
+  gsap.set(copyright, { display: "inline-block" });
+
+  // Avoid wrapping the copyright symbol more than once
+  if (!copyright.querySelector(".copyright-symbol")) {
+    copyright.innerHTML = copyright.innerHTML.replace(
+      "©",
+      '<span class="copyright-symbol">©</span>'
+    );
+  }
+
+  const symbol = copyright.querySelector(".copyright-symbol");
+
+  if (!symbol) return;
+
+  gsap.set(symbol, {
+    display: "inline-block",
+    transformOrigin: "center center"
+  });
+
+  const RADIUS = 120;
+  const STRENGTH = 0.55;
+
+  copyright.addEventListener("mousemove", (e) => {
+    const rect = copyright.getBoundingClientRect();
+
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    const distance = Math.hypot(dx, dy);
+
+    if (distance < RADIUS) {
+      gsap.to(copyright, {
+        x: dx * STRENGTH,
+        y: dy * STRENGTH,
+        duration: 0.5,
+        ease: "elastic.out(1, 0.2)",
+        overwrite: "auto"
+      });
+    }
+  });
+
+  copyright.addEventListener("mouseenter", () => {
+    gsap.fromTo(
+      symbol,
+      { rotation: 0 },
+      {
+        rotation: 360,
+        duration: 0.6,
+        ease: "back.out(1.7)",
+        overwrite: "auto"
+      }
+    );
+  });
+
+  copyright.addEventListener("mouseleave", () => {
+    gsap.to(copyright, {
+      x: 0,
+      y: 0,
+      duration: 1,
+      ease: "elastic.out(1, 0.2)",
+      overwrite: "auto"
+    });
+  });
+}
+
+
+// ==========================================
+// 11. LOCATED / FREELANCE SCROLL
+// ==========================================
+
+function locatedScroll() {
+  ScrollTrigger.getById("locatedScrollTrigger")?.kill();
+
+  const elements = document.querySelectorAll(".located, .freelance");
+
+  if (!elements.length) return;
+
+  // Mobile: no vertical scroll animation
+  if (!isDesktop()) {
+    gsap.set(elements, { clearProps: "transform" });
+    return;
+  }
+
+  gsap.to(elements, {
+    y: -250,
+    ease: "none",
+
+    scrollTrigger: {
+      id: "locatedScrollTrigger",
+      trigger: ".page1",
+      scroller: getScroller(),
+      start: "top top",
+      end: "bottom top",
+      scrub: 1,
+      invalidateOnRefresh: true
+    }
+  });
+}
+
+
+// ==========================================
+// 12. INDIA TIME
+// ==========================================
+
+function updateIndiaTime() {
+  const time = document.querySelector("#time");
+
+  if (!time) return;
+
+  const indiaTime = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
+  }).format(new Date());
+
+  time.textContent = `${indiaTime} IST`;
+}
+
+updateIndiaTime();
+
+setInterval(updateIndiaTime, 1000);
+
+
+// ==========================================
+// 13. GET IN TOUCH MAGNET
+// ==========================================
+
+function getInTouchMagnet() {
+  const button = document.querySelector(".get-circle");
+
+  if (!button) return;
+
+  const PULL_RADIUS = 130;
+  const MAX_PULL = 30;
+
+  let isNear = false;
+
+  function getCenter() {
+    const r = button.getBoundingClientRect();
+
+    return {
+      x: r.left + r.width / 2,
+      y: r.top + r.height / 2
+    };
+  }
+
+  function resetPull() {
+    gsap.to(button, {
+      x: 0,
+      y: 0,
+      duration: 0.8,
+      ease: "elastic.out(1, 0.3)",
+      overwrite: "auto"
+    });
+  }
+
+  function handleMove(clientX, clientY) {
+    const c = getCenter();
+
+    const dx = clientX - c.x;
+    const dy = clientY - c.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < PULL_RADIUS) {
+      const strength = 1 - dist / PULL_RADIUS;
+
+      let x = dx * strength;
+      let y = dy * strength;
+
+      const mag = Math.hypot(x, y);
+      const clamp = Math.min(1, MAX_PULL / (mag || 1));
+
+      x *= clamp;
+      y *= clamp;
+
+      gsap.to(button, {
+        x,
+        y,
+        duration: 0.6,
+        ease: "power3.out",
+        overwrite: "auto"
+      });
+
+      isNear = true;
+    } else if (isNear) {
+      isNear = false;
+      resetPull();
+    }
+  }
+
+  document.addEventListener("mousemove", (e) => {
+    handleMove(e.clientX, e.clientY);
   });
 
-  function update() {
-    el.textContent = fmt.format(new Date()) + " IST";
-  }
+  document.addEventListener("touchmove", (e) => {
+    const t = e.touches[0];
 
-  update();
-  setInterval(update, 1000);
+    if (t) handleMove(t.clientX, t.clientY);
+  }, { passive: true });
+
+  document.addEventListener("touchend", () => {
+    if (isNear) {
+      isNear = false;
+      resetPull();
+    }
+  });
 }
 
 
 // ==========================================
-// INIT
+// 14. PAGE 3 ROUND ANIMATION
 // ==========================================
 
-// Ek function fail ho to baaki (aur preloader) na ruke
-function safe(fn) {
-  try {
-    fn();
-  } catch (err) {
-    console.error(fn.name + " failed:", err);
-  }
+function page3RoundAnimation() {
+  const page3 = document.querySelector(".page3");
+
+  if (!page3) return;
+
+  gsap.to(page3, {
+    paddingBottom: "0vh",
+    borderBottomLeftRadius: "0px",
+    borderBottomRightRadius: "0px",
+    ease: "none",
+
+    scrollTrigger: {
+      id: "page3RoundTrigger",
+      trigger: page3,
+      scroller: getScroller(),
+      start: "bottom bottom",
+      end: "bottom 40%",
+      scrub: 1,
+      invalidateOnRefresh: true
+    }
+  });
 }
 
-let initDone = false;
+
+// ==========================================
+// 15. PROJECT FADE IN
+// ==========================================
+
+function projectFadeIn() {
+  const projects = document.querySelectorAll("#list .proj");
+
+  if (!projects.length) return;
+
+  gsap.set(projects, {
+    opacity: 0,
+    y: 35
+  });
+
+  projects.forEach((project) => {
+    gsap.to(project, {
+      opacity: 1,
+      y: 0,
+      duration: 0.8,
+      ease: "power2.out",
+
+      scrollTrigger: {
+        trigger: project,
+        scroller: getScroller(),
+        start: "top 90%",
+        toggleActions: "play none none none"
+      }
+    });
+  });
+}
+
+
+// ==========================================
+// 16. RESIZE / DEVICE SWITCH
+// ==========================================
+
+let previousDesktopState = isDesktop();
+
+function handleResponsiveResize() {
+  clearTimeout(scrollRefreshTimer);
+
+  scrollRefreshTimer = setTimeout(() => {
+    const nowDesktop = isDesktop();
+
+    // Rebuild the scroll system when crossing the breakpoint.
+    // This ensures all existing ScrollTriggers use the correct scroller.
+    if (nowDesktop !== previousDesktopState) {
+      window.location.reload();
+      return;
+    }
+
+    if (locoScroll) locoScroll.update();
+
+    ScrollTrigger.refresh();
+  }, 200);
+}
+
+window.addEventListener("resize", handleResponsiveResize);
+
+
+
+document.querySelectorAll('.top .right a[href="#l-footer"]').forEach((link) => {
+  link.addEventListener("click", function (e) {
+    e.preventDefault();
+
+    const footer = document.querySelector("#l-footer");
+    if (!footer) return;
+
+    if (window.matchMedia("(min-width: 1025px)").matches && locoScroll) {
+      locoScroll.scrollTo(footer, {
+        offset: 0,
+        duration: 1.2,
+        disableLerp: false
+      });
+
+      // Footer par pahunchne ke baad scroll position sync karo
+      setTimeout(() => {
+        locoScroll.update();
+        ScrollTrigger.refresh();
+      }, 1400);
+    } else {
+      footer.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+  });
+});
+
+
+
+// ==========================================
+// 17. INITIALIZE EVERYTHING
+// ==========================================
 
 function init() {
-  if (initDone) return; // double init se bachao
-  initDone = true;
+  gsap.registerPlugin(ScrollTrigger);
 
-  safe(smoothScroll);       // desktop only
-  safe(scrollTriggerSetup); // desktop => proxy, mobile => native
-  safe(greeting);           // preloader
-  safe(krishnaAnimation);
-  safe(page2Animation);
-  safe(hemburger);
-  safe(aboutMeMagnet);
-  safe(imageAnimation);
-  safe(localTime);
-  safe(refreshScroll);
+  smoothScroll();
+  scrollTriggerSetup();
 
-  // Failsafe: kuch bhi ho, preloader 12 sec baad hat jayega
-  setTimeout(() => {
-    const p = document.querySelector("#preloader");
-    if (p && p.style.display !== "none") {
-      p.style.display = "none";
-      unlockScroll();
-      refreshScroll();
-    }
-  }, 12000);
+  greeting();
+  krishnaAnimation();
+  page2Animation();
+  hemburger();
+  aboutMeMagnet();
+  imageAnimation();
+  navMagnet();
+  locatedScroll();
+  getInTouchMagnet();
+  page3RoundAnimation();
+  projectFadeIn();
+
+  updateIndiaTime();
+  refreshScroll();
 }
 
-// "load" images ka wait karta hai (preloader late/ruka lagta hai),
-// isliye DOMContentLoaded use kiya
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
-}
-
-// Images load hone ke baad scroll height sahi karo
-window.addEventListener("load", () => safe(refreshScroll));
-             
+init();
