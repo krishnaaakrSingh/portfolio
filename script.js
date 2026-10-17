@@ -81,7 +81,7 @@ function scrollTriggerSetup() {
     ScrollTrigger.addEventListener("refresh", () => {
       if (locoScroll) locoScroll.update();
     });
-  }   } else {
+  } else {
     ScrollTrigger.config({ ignoreMobileResize: true });
 
     ScrollTrigger.defaults({
