@@ -396,7 +396,7 @@ function aboutMeMagnet() {
   const button = document.querySelector(".outer-circle");
   const label = document.querySelector(".label");
   const fill = document.querySelector(".fill");
-
+    if (window.matchMedia("(hover: none)").matches) return;
   if (!button || !label || !fill) return;
 
   const PULL_RADIUS = 130;
