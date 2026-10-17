@@ -138,8 +138,6 @@ body {
 
 
 
-
-
 .located {
   display: flex;
 
@@ -1223,7 +1221,7 @@ ul.list li {
    Applies to phones: 480px and below
    Desktop / laptop CSS remains unchanged
 ========================================== */
-
+   
 @media (max-width: 767px) {
 
   /* ==================================
@@ -1339,7 +1337,7 @@ ul.list li {
   }
 
   .freelance {
-    font-size: max(9px, 2.5vw);
+    font-size: 4vw;
   }
 
   .c-freelance {
@@ -1358,14 +1356,15 @@ ul.list li {
   .c-freelance h3 {
     position: absolute;
     margin-top: 75vw;
-    font-size: 18px;
-    line-height: 1.6;
+    font-size: 25px;
+    line-height: 1.4;
   }
 
   /* marquee hero ke neeche ki taraf */
   .marquee-wrap {
     height: 20vh;
     margin: auto 0 16vh;
+    margin-bottom: 55vw;
   }
 
   .marquee-wrap > .marquee-track {
@@ -1385,9 +1384,7 @@ ul.list li {
     display:flex;
     height: auto;
     padding: 30px 30px;
-    height: auto;
-    padding: 12vw 12vw 7vw;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: space-between;
     gap: 2rem;
   }
@@ -1439,15 +1436,14 @@ ul.list li {
 
 .outer-circle {
     position: relative;
-    right: 20px;
+    left: 50%;
     top: 30px;
-    flex-shrink: 0;
-    width: max(84px, 28vw);
-    height: max(84px, 28vw);
+    width: 40vw;
+    height: 40vw;
   }
 
   .outer-circle .label {
-    font-size: max(13px, 3.4vw);
+    font-size: 4vw;
     letter-spacing: 0;
     text-transform: none;
   }
@@ -1539,16 +1535,16 @@ ul.list li {
     white-space: normal;
     color: #555;
   }
-  
+
 
   .preview {
     display: none;
   }
 
 
-  /* ==================================
-     #p2 — MY PROJECTS (2 cards side by side)
-  ================================== */
+  /* ====================================
+     #p2 — MY PROJECTS (2 cards side by si [clipped in video]
+  ==================================== */
 
   #p2 {
     min-height: 0;
@@ -1584,7 +1580,7 @@ ul.list li {
     text-align: left;
   }
 
-  /* reference ki tarah: pehle image, neeche title */
+  /* reference ki tarah: pehle image, neec [clipped in video] */
   .projects > .img1 img,
   .projects > .img2 img {
     order: 1;
@@ -1603,9 +1599,9 @@ ul.list li {
   }
 
 
-  /* ==================================
-     PAGE 3 — BUG FIXING (curved bottom edge)
-  ================================== */
+  /* ====================================
+     PAGE 3 — BUG FIXING (curved bottom ed [clipped in video]
+  ==================================== */
 
   .page3 {
     height: auto;
@@ -1619,7 +1615,7 @@ ul.list li {
     font-size: max(18px, 5vw);
   }
 
-  .slider {
+  .Slider {
     margin: 6vw 0 0;
     padding: 0 6vw;
     justify-content: space-between;
@@ -1627,22 +1623,22 @@ ul.list li {
     gap: 3vw;
   }
 
-  .slider-img,
-  .slider-img2 {
+  .Slider-img,
+  .Slider-img2 {
     width: calc(50% - 1.5vw);
   }
 
-  .slider-img img,
-  .slider-img2 img {
+  .Slider-img img,
+  .Slider-img2 img {
     display: block;
     width: 100%;
     height: auto;
   }
 
 
-  /* ==================================
-     PAGE 4 — "LET'S WORK TOGETHER"  (screenshot jaisa)
-  ================================== */
+  /* ====================================
+     PAGE 4 — "LET'S WORK TOGETHER"  (scre [clipped in video]
+  ==================================== */
 
   .page4 {
     height: auto;
@@ -1659,7 +1655,7 @@ ul.list li {
     padding-bottom: 16vw;
   }
 
-  /* bada heading: avatar + "Let's work" / "together" + arrow */
+  /* bada heading: avatar + "Let's work" / [clipped in video] */
   .profile > .footer-top {
     font-size: 12.2vw;
   }
@@ -1690,14 +1686,14 @@ ul.list li {
   /* divider line (.light-line) */
   .page4 > .footer > .light-line {
     padding-bottom: 0;
-    border-top-color: rgba(255, 255, 255, 0.22);
+    border-top-color: rgba(255, 255, 255, 0.2); /* ?? alpha clipped in video */
   }
 
   .p-right {
     bottom: 0;
   }
 
-  /* bada blue circle, divider line ke bilkul beech me */
+  /* bada blue circle, divider line ke bil [clipped in video] */
   .get-circle {
     width: 40vw;
     height: 40vw;
@@ -1706,7 +1702,7 @@ ul.list li {
     font-size: 4.2vw;
   }
 
-  /* email + phone pills: full width, ek ke neeche ek */
+  /* email + phone pills: full width, ek k [clipped in video] */
   .btn-child {
     display: flex;
     flex-direction: column;
@@ -1725,15 +1721,15 @@ ul.list li {
   }
 
 
-  /* ==================================
-     FOOTER 2 — SOCIALS (upar), phir VERSION ....... LOCAL TIME
-  ================================== */
+  /* ====================================
+     FOOTER 2 — SOCIALS (upar), phir VERSI [clipped in video]
+  ==================================== */
 
   .footer2 {
     flex-wrap: wrap;
     justify-content: space-between;
     margin-top: 19vw;
-    padding: 0 0 8vw;    /* side padding .page4 se aa rahi hai */
+    padding: 0 0 8vw; /* side padding . [clipped in video] */
     gap: 0;
   }
 
@@ -1750,13 +1746,13 @@ ul.list li {
     font-size: 4.3vw;
   }
 
-  /* Socials: poori width, sabse upar, neeche divider line */
+  /* Socials: poori width, sabse upar, nee [clipped in video] */
   .footer2 .socials {
     order: -1;
     flex: 0 0 100%;
     margin: 0 0 9vw;
     padding-bottom: 9.5vw;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* ?? alpha clipped in video */
   }
 
   .footer2 .links {
@@ -1770,13 +1766,13 @@ ul.list li {
 }
 
 
-/* ==========================================================
-   TOUCH DEVICES (width se alag, hover ki wajah se)
-========================================================== */
+/* =========================================
+   TOUCH DEVICES (width se alag, hover ki [clipped in video]
+========================================= */
 
 @media (hover: none) {
 
-  /* mouse-follow preview touch pe nahi chahiye */
+  /* mouse-follow preview touch pe nahi ch [clipped in video] */
   .preview {
     display: none;
   }
@@ -1799,7 +1795,7 @@ ul.list li {
   text-transform: uppercase;
   padding-bottom: 10px;
   margin-bottom: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1); /* ?? alpha clipped in video */
 }
 
 .pair {
@@ -1821,3 +1817,5 @@ ul.list li {
   height: auto;
   display: block;
 }
+
+  
