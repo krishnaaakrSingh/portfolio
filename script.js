@@ -826,7 +826,7 @@ function imageAnimation() {
 // ==========================================
 
 function navMagnet() {
-  const items = document.querySelectorAll(".right span");
+  const items = document.querySelectorAll(".right a");
 
   items.forEach((item) => {
     // Avoid adding duplicate dots
@@ -1029,6 +1029,7 @@ setInterval(updateIndiaTime, 1000);
 // ==========================================
 
 function getInTouchMagnet() {
+    if (window.matchMedia("(hover: none)").matches) return;
   const button = document.querySelector(".get-circle");
 
   if (!button) return;
